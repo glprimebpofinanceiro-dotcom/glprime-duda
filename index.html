@@ -290,6 +290,7 @@ input:checked+.toggle-sl::before{transform:translateX(15px);background:#fff}
     <div class="tb-left">
       <span class="tb-title" id="ptitle">Dashboard</span>
       <span class="tb-date" id="tb-date"></span>
+      <span id="conn-ind" style="font-size:10px;color:var(--text3);padding:3px 8px;background:var(--bg3);border-radius:99px;border:1px solid var(--line)">● conectando...</span>
     </div>
     <div class="tba" id="tba"></div>
   </div>
@@ -305,7 +306,33 @@ input:checked+.toggle-sl::before{transform:translateX(15px);background:#fff}
 </div>
 
 <script>
-const S=window.storage;
+// ─── SUPABASE — dados na nuvem, abre em qualquer dispositivo ─────────────────
+const SB_URL='https://vsbbiyttpnnrnurkklnq.supabase.co';
+const SB_KEY='sb_publishable_sGIRRpOkmXUCUUVmjS27yw_2XbpCtQl';
+const SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+
+async function sbLoad(){
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/glprime_dados?id=eq.duda&select=dados',{headers:SB_H});
+    if(!r.ok) throw new Error(r.status);
+    const d=await r.json();
+    return d?.[0]?.dados||null;
+  }catch(e){
+    try{const v=localStorage.getItem('glprime_bk');return v?JSON.parse(v):null;}catch{return null;}
+  }
+}
+async function sbSave(val){
+  // salva local imediatamente
+  try{localStorage.setItem('glprime_bk',JSON.stringify(val));}catch{}
+  // salva na nuvem
+  try{
+    await fetch(SB_URL+'/rest/v1/glprime_dados?id=eq.duda',{
+      method:'PATCH',
+      headers:{...SB_H,'Prefer':'return=minimal'},
+      body:JSON.stringify({dados:val,atualizado_em:new Date().toISOString()})
+    });
+  }catch{}
+}
 const fmt=v=>'R$\u00a0'+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtK=v=>{const n=Number(v||0);return Math.abs(n)>=1000?'R$\u00a0'+(n/1000).toFixed(1)+'k':fmt(n)};
 const fmtD=d=>{if(!d)return'—';const p=d.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d};
@@ -346,15 +373,19 @@ let filtMes='todos',filtTipo='todos';
 let pagarMesSel='2026-05';
 
 async function load(){
-  try{const r=await S.get('glprime_v5');if(r?.value){const d=JSON.parse(r.value);DB=d.DB;nR=d.nR;nP=d.nP;nC=d.nC;nPl=d.nPl;}}catch(e){}
-  // Ensure pagar is object keyed by month
-  if(Array.isArray(DB.pagar)){
-    const arr=DB.pagar;DB.pagar={'2026-05':arr};
-  }
-  document.getElementById('tb-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+  // mostra loading
+  const tb=document.getElementById('tb-date');
+  if(tb) tb.textContent='Carregando...';
+  const d=await sbLoad();
+  if(d){DB=d.DB||defaultDB;nR=d.nR||16;nP=d.nP||200;nC=d.nC||50;nPl=d.nPl||12;}
+  if(Array.isArray(DB.pagar)){const arr=DB.pagar;DB.pagar={'2026-05':arr};}
+  if(tb) tb.textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+  // indicador de conexão
+  const ind=document.getElementById('conn-ind');
+  if(ind){ind.textContent=d?'● nuvem':' localStorage';ind.style.color=d?'var(--sage)':'var(--gold)';}
   render();
 }
-async function save(){try{await S.set('glprime_v5',JSON.stringify({DB,nR,nP,nC,nPl}));}catch(e){}}
+async function save(){await sbSave({DB,nR,nP,nC,nPl});}
 function log(msg,tipo='info'){DB.hist.unshift({ts:nowStr(),msg,tipo});if(DB.hist.length>300)DB.hist.pop();save();}
 
 function go(el){
@@ -1151,6 +1182,29 @@ function rPlano(){
 }
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
+function exportBackup(){
+  const dados=JSON.stringify({DB,nR,nP,nC,nPl},null,2);
+  const blob=new Blob([dados],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='glprime_duda_backup_'+new Date().toISOString().split('T')[0]+'.json';
+  a.click();URL.revokeObjectURL(url);
+}
+function importBackup(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json';
+  inp.onchange=e=>{
+    const f=e.target.files[0];if(!f)return;
+    const r=new FileReader();
+    r.onload=ev=>{
+      try{
+        const d=JSON.parse(ev.target.result);
+        if(!d.DB) throw new Error('Arquivo inválido');
+        DB=d.DB;nR=d.nR||16;nP=d.nP||200;nC=d.nC||50;nPl=d.nPl||12;
+        save();alert('✅ Backup importado! Seus dados estão de volta.');render();
+      }catch(e){alert('❌ Arquivo inválido. Use um backup exportado por este sistema.');}
+    };r.readAsText(f);
+  };inp.click();
+}
 function rConfig(){
   document.getElementById('tba').innerHTML='';
   document.getElementById('content').innerHTML=`<div class="g2">
@@ -1159,7 +1213,7 @@ function rConfig(){
       <div class="fg"><label class="fl">Saldo C6 Bank (R$)</label><input class="inp" type="number" id="cfg-c6" value="${DB.config.saldo_c6||0}" oninput="updCfg()"></div>
       <div class="fg"><label class="fl">Meta faturamento mensal</label><input class="inp" type="number" id="cfg-meta" value="${DB.config.meta_fat}" oninput="updCfg()"></div>
       <div class="fg"><label class="fl">Pró-labore definido</label><input class="inp" type="number" id="cfg-pro" value="${DB.config.prolabore}" oninput="updCfg()"></div>
-      <div class="al s" style="margin-bottom:0">Salvo automaticamente.</div>
+      <div class="al s" style="margin-bottom:0">Dados salvos automaticamente neste navegador (localStorage).</div>
     </div></div>
     <div class="card"><div class="ch"><span class="ct">Cliente</span></div><div class="cb" style="padding:0"><table>
       <tr><td style="color:var(--text3);font-size:11px;padding:9px 14px">Nome</td><td style="font-weight:600">Maria Eduarda Bianzeno</td></tr>
@@ -1170,6 +1224,22 @@ function rConfig(){
       <tr><td style="color:var(--text3);font-size:11px;padding:9px 14px">Consultora</td><td style="font-weight:600;color:var(--gold)">Gabriela Lima · GL Prime</td></tr>
       <tr><td style="color:var(--text3);font-size:11px;padding:9px 14px">Início BPO</td><td>02/04/2026 · R$200 implant. + R$250/mês</td></tr>
     </table></div></div>
+  </div>
+  <div class="card">
+    <div class="ch"><span class="ct">☁ Armazenamento em nuvem — Supabase</span></div>
+    <div class="cb">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.7">
+        Dados salvos no <strong style="color:var(--sage)">Supabase</strong>. Abre igual em qualquer dispositivo e navegador — sem exportar nada.<br>
+        O indicador <span style="color:var(--sage)">● nuvem</span> no topo confirma que está sincronizado.
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn primary" onclick="exportBackup()">⬇ Exportar backup (.json)</button>
+        <button class="btn" onclick="importBackup()">⬆ Importar backup</button>
+      </div>
+      <div style="border-top:1px solid var(--line);padding-top:12px;margin-top:4px">
+        <button class="btn" style="color:var(--rust);border-color:var(--rust-dim)" onclick="if(confirm('Zerar TODOS os dados? Esta ação não pode ser desfeita.')){DB=JSON.parse(JSON.stringify(defaultDB));nR=16;nP=200;nC=50;nPl=12;save();render();}">🗑 Zerar todos os dados</button>
+      </div>
+    </div>
   </div>`;
 }
 function updCfg(){
