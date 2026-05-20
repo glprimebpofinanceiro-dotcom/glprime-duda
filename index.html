@@ -305,7 +305,7 @@ input:checked+.toggle-sl::before{transform:translateX(15px);background:#fff}
 </div>
 
 <script>
-const S=window.storage;
+const S={get:async k=>{try{const v=localStorage.getItem(k);return v?{value:v}:null;}catch{return null;}},set:async(k,v)=>{try{localStorage.setItem(k,v);}catch{}}};
 const fmt=v=>'R$\u00a0'+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtK=v=>{const n=Number(v||0);return Math.abs(n)>=1000?'R$\u00a0'+(n/1000).toFixed(1)+'k':fmt(n)};
 const fmtD=d=>{if(!d)return'—';const p=d.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d};
@@ -1198,6 +1198,11 @@ function rConfig(){
       <tr><td style="color:var(--text3);font-size:11px;padding:9px 14px">Início BPO</td><td>02/04/2026 · R$200 implant. + R$250/mês</td></tr>
     </table></div></div>
   </div>
+  <div class="al" style="background:rgba(74,122,191,.08);border:1px solid var(--slate-dim);border-radius:var(--r);padding:10px 14px;margin-bottom:4px;font-size:11px;color:var(--slate)">💾 <strong>Dados salvos neste navegador</strong> (localStorage). Para acessar em outro dispositivo, exporte o backup e importe no outro navegador.</div>
+  <div class="card" style="margin-bottom:4px"><div class="ch"><span class="ct">Backup de dados</span></div><div class="cb" style="display:flex;gap:10px">
+    <button class="btn" onclick="exportarDados()" style="flex:1;justify-content:center">⬇ Exportar backup (.json)</button>
+    <button class="btn" onclick="importarDados()" style="flex:1;justify-content:center">⬆ Importar backup (.json)</button>
+  </div></div>
   <div class="card" style="border-color:var(--rust-dim);margin-top:4px"><div class="ch" style="border-color:var(--rust-dim)"><span class="ct" style="color:var(--rust)">Zona de risco</span></div><div class="cb" style="display:flex;align-items:center;justify-content:space-between;gap:16px">
     <div><div style="font-size:12px;font-weight:600;margin-bottom:3px">Reiniciar sistema do zero</div><div style="font-size:11px;color:var(--text3)">Apaga contratos, contas a pagar, conciliação e histórico. Mantém plano de contas e configurações.</div></div>
     <button class="btn" style="border-color:var(--rust-dim);color:var(--rust);white-space:nowrap;flex-shrink:0" onclick="resetarSistema()">Reiniciar dados</button>
@@ -1218,6 +1223,27 @@ function resetarSistema(){
   log('Sistema reiniciado do zero pela consultora GL Prime','edit');
   save();render();
   alert('✅ Sistema reiniciado. Pode começar a operação!');
+}
+function exportarDados(){
+  const blob=new Blob([JSON.stringify({DB,nR,nP,nC,nPl},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`glprime_duda_backup_${today}.json`;a.click();
+  log('Backup exportado','edit');
+}
+function importarDados(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json';
+  inp.onchange=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const d=JSON.parse(ev.target.result);
+        if(!d.DB)throw new Error('Arquivo inválido');
+        DB=d.DB;nR=d.nR||16;nP=d.nP||200;nC=d.nC||50;nPl=d.nPl||12;
+        save();render();alert('✅ Dados restaurados com sucesso!');
+      }catch{alert('❌ Arquivo inválido. Use um backup gerado por este sistema.');}
+    };reader.readAsText(file);
+  };inp.click();
 }
 
 // ─── MODAIS ───────────────────────────────────────────────────────────────────
