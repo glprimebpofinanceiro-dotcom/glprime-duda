@@ -305,7 +305,27 @@ input:checked+.toggle-sl::before{transform:translateX(15px);background:#fff}
 </div>
 
 <script>
-const S={get:async k=>{try{const v=localStorage.getItem(k);return v?{value:v}:null;}catch{return null;}},set:async(k,v)=>{try{localStorage.setItem(k,v);}catch{}}};
+const SB_URL='https://vsbbiyttpnnrnurkklnq.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzYmJpeXR0cG5ucm51cmtrbG5xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2ODI3MTQsImV4cCI6MjA5NDI1ODcxNH0.rovwMegUXYw-K63-nq6vL3a7m6HiCHAum3BDbiLIJyQ';
+const SB_H={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+const S={
+  get:async k=>{
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/glprime_dados?id=eq.duda&select=dados`,{headers:SB_H});
+      if(r.ok){const d=await r.json();if(d[0]?.dados)return{value:JSON.stringify(d[0].dados)};}
+    }catch{}
+    try{const v=localStorage.getItem(k);return v?{value:v}:null;}catch{return null;}
+  },
+  set:async(k,v)=>{
+    try{localStorage.setItem(k,v);}catch{}
+    try{
+      await fetch(`${SB_URL}/rest/v1/glprime_dados?id=eq.duda`,{
+        method:'PATCH',headers:{...SB_H,'Prefer':'return=minimal'},
+        body:JSON.stringify({dados:JSON.parse(v)})
+      });
+    }catch{}
+  }
+};
 const fmt=v=>'R$\u00a0'+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtK=v=>{const n=Number(v||0);return Math.abs(n)>=1000?'R$\u00a0'+(n/1000).toFixed(1)+'k':fmt(n)};
 const fmtD=d=>{if(!d)return'—';const p=d.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d};
@@ -1198,7 +1218,7 @@ function rConfig(){
       <tr><td style="color:var(--text3);font-size:11px;padding:9px 14px">Início BPO</td><td>02/04/2026 · R$200 implant. + R$250/mês</td></tr>
     </table></div></div>
   </div>
-  <div class="al" style="background:rgba(74,122,191,.08);border:1px solid var(--slate-dim);border-radius:var(--r);padding:10px 14px;margin-bottom:4px;font-size:11px;color:var(--slate)">💾 <strong>Dados salvos neste navegador</strong> (localStorage). Para acessar em outro dispositivo, exporte o backup e importe no outro navegador.</div>
+  <div class="al" style="background:rgba(74,122,191,.08);border:1px solid var(--slate-dim);border-radius:var(--r);padding:10px 14px;margin-bottom:4px;font-size:11px;color:var(--slate)">☁ <strong>Dados sincronizados na nuvem</strong> (Supabase). Acesse de qualquer navegador ou dispositivo — os dados ficam sempre atualizados. O backup local também é mantido como segurança.</div>
   <div class="card" style="margin-bottom:4px"><div class="ch"><span class="ct">Backup de dados</span></div><div class="cb" style="display:flex;gap:10px">
     <button class="btn" onclick="exportarDados()" style="flex:1;justify-content:center">⬇ Exportar backup (.json)</button>
     <button class="btn" onclick="importarDados()" style="flex:1;justify-content:center">⬆ Importar backup (.json)</button>
