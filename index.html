@@ -290,7 +290,6 @@ input:checked+.toggle-sl::before{transform:translateX(15px);background:#fff}
     <div class="tb-left">
       <span class="tb-title" id="ptitle">Dashboard</span>
       <span class="tb-date" id="tb-date"></span>
-      <span id="conn-ind" style="font-size:10px;color:var(--text3);padding:3px 8px;background:var(--bg3);border-radius:99px;border:1px solid var(--line)">● conectando...</span>
     </div>
     <div class="tba" id="tba"></div>
   </div>
@@ -306,33 +305,7 @@ input:checked+.toggle-sl::before{transform:translateX(15px);background:#fff}
 </div>
 
 <script>
-// ─── SUPABASE — dados na nuvem, abre em qualquer dispositivo ─────────────────
-const SB_URL='https://vsbbiyttpnnrnurkklnq.supabase.co';
-const SB_KEY='sb_publishable_sGIRRpOkmXUCUUVmjS27yw_2XbpCtQl';
-const SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-
-async function sbLoad(){
-  try{
-    const r=await fetch(SB_URL+'/rest/v1/glprime_dados?id=eq.duda&select=dados',{headers:SB_H});
-    if(!r.ok) throw new Error(r.status);
-    const d=await r.json();
-    return d?.[0]?.dados||null;
-  }catch(e){
-    try{const v=localStorage.getItem('glprime_bk');return v?JSON.parse(v):null;}catch{return null;}
-  }
-}
-async function sbSave(val){
-  // salva local imediatamente
-  try{localStorage.setItem('glprime_bk',JSON.stringify(val));}catch{}
-  // salva na nuvem
-  try{
-    await fetch(SB_URL+'/rest/v1/glprime_dados?id=eq.duda',{
-      method:'PATCH',
-      headers:{...SB_H,'Prefer':'return=minimal'},
-      body:JSON.stringify({dados:val,atualizado_em:new Date().toISOString()})
-    });
-  }catch{}
-}
+const S=window.storage;
 const fmt=v=>'R$\u00a0'+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtK=v=>{const n=Number(v||0);return Math.abs(n)>=1000?'R$\u00a0'+(n/1000).toFixed(1)+'k':fmt(n)};
 const fmtD=d=>{if(!d)return'—';const p=d.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d};
@@ -373,19 +346,15 @@ let filtMes='todos',filtTipo='todos';
 let pagarMesSel='2026-05';
 
 async function load(){
-  // mostra loading
-  const tb=document.getElementById('tb-date');
-  if(tb) tb.textContent='Carregando...';
-  const d=await sbLoad();
-  if(d){DB=d.DB||defaultDB;nR=d.nR||16;nP=d.nP||200;nC=d.nC||50;nPl=d.nPl||12;}
-  if(Array.isArray(DB.pagar)){const arr=DB.pagar;DB.pagar={'2026-05':arr};}
-  if(tb) tb.textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
-  // indicador de conexão
-  const ind=document.getElementById('conn-ind');
-  if(ind){ind.textContent=d?'● nuvem':' localStorage';ind.style.color=d?'var(--sage)':'var(--gold)';}
+  try{const r=await S.get('glprime_v5');if(r?.value){const d=JSON.parse(r.value);DB=d.DB;nR=d.nR;nP=d.nP;nC=d.nC;nPl=d.nPl;}}catch(e){}
+  // Ensure pagar is object keyed by month
+  if(Array.isArray(DB.pagar)){
+    const arr=DB.pagar;DB.pagar={'2026-05':arr};
+  }
+  document.getElementById('tb-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
   render();
 }
-async function save(){await sbSave({DB,nR,nP,nC,nPl});}
+async function save(){try{await S.set('glprime_v5',JSON.stringify({DB,nR,nP,nC,nPl}));}catch(e){}}
 function log(msg,tipo='info'){DB.hist.unshift({ts:nowStr(),msg,tipo});if(DB.hist.length>300)DB.hist.pop();save();}
 
 function go(el){
@@ -640,6 +609,8 @@ function rConc(){
   document.getElementById('content').innerHTML=html;
 }
 async function rodarIA(){
+  let key=localStorage.getItem('gl_ai_key')||'';
+  if(!key){key=(prompt('Chave API Anthropic (começa com sk-ant-):')||'').trim();if(!key)return;localStorage.setItem('gl_ai_key',key);}
   const el=document.getElementById('content');const div=document.createElement('div');
   div.className='ai-thinking';div.innerHTML='<div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span>Claude analisando lançamentos...</span>';
   el.prepend(div);
@@ -648,22 +619,24 @@ async function rodarIA(){
   const tDb=DB.conc.filter(x=>x.tipo==='debito').reduce((s,x)=>s+Number(x.valor),0);
   const resumo=DB.conc.slice(0,20).map(c=>`${c.data}|${c.tipo==='credito'?'+':'-'}${c.valor}|${c.desc}|${c.cat}|inc:${c.inc}`).join('\n');
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:`Analista financeira GL Prime BPO. Analise este extrato de uma Storymaker (eventos/casamentos) em Ourinhos SP. Seja direta, sem introdução.\n\nEntradas: R$${tCr.toFixed(2)} · Saídas: R$${tDb.toFixed(2)} · Pessoal no CNPJ: R$${tPF.toFixed(2)}\n\nLançamentos (primeiros 20):\n${resumo}\n\nEm até 180 palavras:\n1. Diagnóstico (2 linhas)\n2. Problemas críticos (lista 3-4 itens)\n3. Próxima ação imediata`}]})});
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:`Analista financeira GL Prime BPO. Analise este extrato de uma Storymaker (eventos/casamentos) em Ourinhos SP. Seja direta, sem introdução.\n\nEntradas: R$${tCr.toFixed(2)} · Saídas: R$${tDb.toFixed(2)} · Pessoal no CNPJ: R$${tPF.toFixed(2)}\n\nLançamentos (primeiros 20):\n${resumo}\n\nEm até 180 palavras:\n1. Diagnóstico (2 linhas)\n2. Problemas críticos (lista 3-4 itens)\n3. Próxima ação imediata`}]})});
+    if(!res.ok){if(res.status===401){localStorage.removeItem('gl_ai_key');div.innerHTML='<span style="color:var(--rust)">Chave API inválida — recarregue e tente novamente.</span>';}else{div.innerHTML=`<span style="color:var(--text3)">Erro na API (${res.status}). Tente novamente.</span>`;}return;}
     const data=await res.json();const txt=data.content?.filter(x=>x.type==='text').map(x=>x.text).join('')||'Análise indisponível.';
     div.style.cssText='background:var(--plum-bg);border:1px solid var(--plum-dim);border-radius:var(--r);padding:14px;margin-bottom:14px;display:block';
     div.innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--plum);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">✦ Análise GL Prime IA</div><div style="font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap">${txt}</div>`;
     log('IA: análise de conciliação executada','add');
-  }catch(e){div.innerHTML='<span style="color:var(--text3)">IA indisponível. Use conciliação manual.</span>';}
+  }catch(e){div.innerHTML='<span style="color:var(--text3)">IA indisponível. Verifique sua conexão e tente novamente.</span>';}
 }
 function evDrag(e){e.preventDefault();}
 function dropFile(e){e.preventDefault();handleFile(e.dataTransfer?.files[0]);}
+function parseCSVLine(l){const r=[];let cur='',inQ=false;for(let i=0;i<l.length;i++){if(l[i]==='"'){inQ=!inQ;}else if(l[i]===','&&!inQ){r.push(cur.trim());cur='';}else{cur+=l[i];}}r.push(cur.trim());return r;}
 function handleFile(f){
   if(!f)return;const r=new FileReader();
   r.onload=e=>{
     const lines=e.target.result.split('\n').filter(l=>l.trim()&&l.includes(','));
     let added=0,incs=0;
     lines.forEach(line=>{
-      const c=line.split(',').map(x=>x.trim().replace(/"/g,''));if(c.length<3)return;
+      const c=parseCSVLine(line);if(c.length<3)return;
       const [data,desc,...rest]=c;const val=parseFloat(rest.find(x=>!isNaN(parseFloat(x.replace(',','.'))))||0);
       if(!data||!desc||!val)return;
       const dl=desc.toLowerCase();let cat='operacional',inc=false;
@@ -677,7 +650,7 @@ function handleFile(f){
     log(`Extrato importado: ${added} lançamentos · ${incs} inconsistências`,'add');save();alert(`✅ ${added} importados · ⚠ ${incs} inconsistências`);rConc();
   };r.readAsText(f);
 }
-function catConc(id,cat){const c=DB.conc.find(x=>x.id===id);if(c){c.cat=cat;save();}}
+function catConc(id,cat){const c=DB.conc.find(x=>x.id===id);if(c){c.cat=cat;save();rConc();}}
 function toggleConc(id){const c=DB.conc.find(x=>x.id===id);if(!c)return;c.ok=!c.ok;log(`Conciliação: ${c.desc}→${c.ok?'ok':'pendente'}`,'status');save();rConc();}
 function delC(id){const c=DB.conc.find(x=>x.id===id);if(c&&confirm('Remover?')){DB.conc=DB.conc.filter(x=>x.id!==id);log(`Removido: ${c.desc}`,'del');save();rConc();}}
 
@@ -1182,29 +1155,6 @@ function rPlano(){
 }
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
-function exportBackup(){
-  const dados=JSON.stringify({DB,nR,nP,nC,nPl},null,2);
-  const blob=new Blob([dados],{type:'application/json'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;a.download='glprime_duda_backup_'+new Date().toISOString().split('T')[0]+'.json';
-  a.click();URL.revokeObjectURL(url);
-}
-function importBackup(){
-  const inp=document.createElement('input');inp.type='file';inp.accept='.json';
-  inp.onchange=e=>{
-    const f=e.target.files[0];if(!f)return;
-    const r=new FileReader();
-    r.onload=ev=>{
-      try{
-        const d=JSON.parse(ev.target.result);
-        if(!d.DB) throw new Error('Arquivo inválido');
-        DB=d.DB;nR=d.nR||16;nP=d.nP||200;nC=d.nC||50;nPl=d.nPl||12;
-        save();alert('✅ Backup importado! Seus dados estão de volta.');render();
-      }catch(e){alert('❌ Arquivo inválido. Use um backup exportado por este sistema.');}
-    };r.readAsText(f);
-  };inp.click();
-}
 function rConfig(){
   document.getElementById('tba').innerHTML='';
   document.getElementById('content').innerHTML=`<div class="g2">
@@ -1213,7 +1163,7 @@ function rConfig(){
       <div class="fg"><label class="fl">Saldo C6 Bank (R$)</label><input class="inp" type="number" id="cfg-c6" value="${DB.config.saldo_c6||0}" oninput="updCfg()"></div>
       <div class="fg"><label class="fl">Meta faturamento mensal</label><input class="inp" type="number" id="cfg-meta" value="${DB.config.meta_fat}" oninput="updCfg()"></div>
       <div class="fg"><label class="fl">Pró-labore definido</label><input class="inp" type="number" id="cfg-pro" value="${DB.config.prolabore}" oninput="updCfg()"></div>
-      <div class="al s" style="margin-bottom:0">Dados salvos automaticamente neste navegador (localStorage).</div>
+      <div class="al s" style="margin-bottom:0">Salvo automaticamente.</div>
     </div></div>
     <div class="card"><div class="ch"><span class="ct">Cliente</span></div><div class="cb" style="padding:0"><table>
       <tr><td style="color:var(--text3);font-size:11px;padding:9px 14px">Nome</td><td style="font-weight:600">Maria Eduarda Bianzeno</td></tr>
@@ -1225,22 +1175,10 @@ function rConfig(){
       <tr><td style="color:var(--text3);font-size:11px;padding:9px 14px">Início BPO</td><td>02/04/2026 · R$200 implant. + R$250/mês</td></tr>
     </table></div></div>
   </div>
-  <div class="card">
-    <div class="ch"><span class="ct">☁ Armazenamento em nuvem — Supabase</span></div>
-    <div class="cb">
-      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.7">
-        Dados salvos no <strong style="color:var(--sage)">Supabase</strong>. Abre igual em qualquer dispositivo e navegador — sem exportar nada.<br>
-        O indicador <span style="color:var(--sage)">● nuvem</span> no topo confirma que está sincronizado.
-      </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-        <button class="btn primary" onclick="exportBackup()">⬇ Exportar backup (.json)</button>
-        <button class="btn" onclick="importBackup()">⬆ Importar backup</button>
-      </div>
-      <div style="border-top:1px solid var(--line);padding-top:12px;margin-top:4px">
-        <button class="btn" style="color:var(--rust);border-color:var(--rust-dim)" onclick="if(confirm('Zerar TODOS os dados? Esta ação não pode ser desfeita.')){DB=JSON.parse(JSON.stringify(defaultDB));nR=16;nP=200;nC=50;nPl=12;save();render();}">🗑 Zerar todos os dados</button>
-      </div>
-    </div>
-  </div>`;
+  <div class="card" style="border-color:var(--rust-dim);margin-top:4px"><div class="ch" style="border-color:var(--rust-dim)"><span class="ct" style="color:var(--rust)">Zona de risco</span></div><div class="cb" style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+    <div><div style="font-size:12px;font-weight:600;margin-bottom:3px">Reiniciar sistema do zero</div><div style="font-size:11px;color:var(--text3)">Apaga contratos, contas a pagar, conciliação e histórico. Mantém plano de contas e configurações.</div></div>
+    <button class="btn" style="border-color:var(--rust-dim);color:var(--rust);white-space:nowrap;flex-shrink:0" onclick="resetarSistema()">Reiniciar dados</button>
+  </div></div>`;
 }
 function updCfg(){
   DB.config.saldo_nubank=parseFloat(document.getElementById('cfg-nu')?.value)||0;
@@ -1248,6 +1186,15 @@ function updCfg(){
   DB.config.meta_fat=parseFloat(document.getElementById('cfg-meta')?.value)||5000;
   DB.config.prolabore=parseFloat(document.getElementById('cfg-pro')?.value)||2000;
   save();
+}
+function resetarSistema(){
+  if(!confirm('⚠ Isso apagará TODOS os dados operacionais (contratos, contas a pagar, conciliação e histórico). O plano de contas e as configurações serão mantidos.\n\nDeseja continuar?'))return;
+  if(!confirm('Confirmar reset completo? Esta ação não pode ser desfeita.'))return;
+  DB.receber=[];DB.pagar={};DB.conc=[];DB.hist=[];
+  nR=16;nP=200;nC=50;
+  log('Sistema reiniciado do zero pela consultora GL Prime','edit');
+  save();render();
+  alert('✅ Sistema reiniciado. Pode começar a operação!');
 }
 
 // ─── MODAIS ───────────────────────────────────────────────────────────────────
