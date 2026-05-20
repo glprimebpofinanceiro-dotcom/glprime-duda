@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GL Prime · Duda Storymaker</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0e0e0c;--bg2:#161614;--bg3:#1e1e1b;--bg4:#252520;--bg5:#2e2e28;
+  --text:#e8e5d8;--text2:#a09d8e;--text3:#6b6858;--text4:#3d3b30;
+  --line:rgba(255,255,255,0.06);--line2:rgba(255,255,255,0.1);
+  --gold:#d4a843;--gold-dim:#7a5e1a;--gold-bg:rgba(212,168,67,0.1);
+  --sage:#5c9e6e;--sage-dim:#2a5035;--sage-bg:rgba(92,158,110,0.1);
+  --rust:#c0513a;--rust-dim:#6b2415;--rust-bg:rgba(192,81,58,0.1);
+  --slate:#4a7abf;--slate-dim:#1e3d6b;--slate-bg:rgba(74,122,191,0.1);
+  --plum:#7c5db5;--plum-dim:#3a2460;--plum-bg:rgba(124,93,181,0.1);
+  --teal:#2ea88f;--teal-dim:#114035;--teal-bg:rgba(46,168,143,0.1);
+  --r:6px;--rl:10px;--rxl:16px;
+  --shadow:0 2px 8px rgba(0,0,0,.4);--shadow-lg:0 8px 32px rgba(0,0,0,.6);
+}
+body{font-family:'Sora',sans-serif;font-size:13px;color:var(--text);background:var(--bg);line-height:1.5;overflow:hidden}
+.app{display:flex;height:100vh}
+.sidebar{width:196px;background:var(--bg2);display:flex;flex-direction:column;flex-shrink:0;border-right:1px solid var(--line)}
+.logo-area{padding:18px 14px 14px;border-bottom:1px solid var(--line)}
+.gl-logo{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.gl-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#d4a843,#a07020);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(212,168,67,.3);flex-shrink:0}
+.gl-name{font-size:13px;font-weight:700;letter-spacing:-.3px}
+.gl-sub{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-top:1px}
+.gl-client{background:var(--gold-bg);border:1px solid rgba(212,168,67,.2);border-radius:var(--r);padding:6px 9px;font-size:11px;color:var(--text2)}
+.gl-client span{color:var(--gold);font-weight:600}
+.nav{padding:8px 6px;flex:1;overflow-y:auto}
+.nav::-webkit-scrollbar{width:2px}.nav::-webkit-scrollbar-thumb{background:var(--line2);border-radius:99px}
+.ns{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text4);padding:14px 8px 4px}
+.ni{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;cursor:pointer;color:var(--text3);font-size:12px;font-weight:500;transition:all .12s;user-select:none;position:relative}
+.ni:hover{background:var(--bg3);color:var(--text2)}
+.ni.active{background:var(--bg4);color:var(--text)}
+.ni.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:2px;height:14px;background:var(--gold);border-radius:0 2px 2px 0}
+.ni svg{width:13px;height:13px;flex-shrink:0;opacity:.6}.ni.active svg,.ni:hover svg{opacity:1}
+.sfooter{padding:10px 14px;border-top:1px solid var(--line);font-size:10px;color:var(--text4)}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 22px;height:54px;border-bottom:1px solid var(--line);flex-shrink:0;background:var(--bg2)}
+.tb-left{display:flex;align-items:center;gap:10px}
+.tb-title{font-size:14px;font-weight:700;letter-spacing:-.3px}
+.tb-date{font-size:10px;color:var(--text3);padding:3px 8px;background:var(--bg3);border-radius:99px;border:1px solid var(--line)}
+.tba{display:flex;gap:8px}
+.content{flex:1;overflow-y:auto;padding:20px}
+.content::-webkit-scrollbar{width:4px}.content::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:99px}
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 12px;border:1px solid var(--line2);border-radius:var(--r);background:var(--bg3);color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;transition:all .12s;white-space:nowrap;font-family:'Sora',sans-serif}
+.btn:hover{background:var(--bg4);color:var(--text)}
+.btn.primary{background:var(--gold);color:#0e0e0c;border-color:var(--gold);font-weight:600}
+.btn.primary:hover{background:#e0b84e}
+.btn.ghost{border:none;background:none;color:var(--text3);padding:0 6px}
+.btn.ghost:hover{color:var(--rust)}
+.btn.sm{height:24px;padding:0 8px;font-size:11px}
+.btn.pill{border-radius:99px;height:26px;padding:0 11px;font-size:11px}
+.btn.pill.active{background:var(--gold);color:#0e0e0c;border-color:var(--gold);font-weight:600}
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:var(--rl);overflow:hidden}
+.ch{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.ct{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3)}
+.cb{padding:14px 16px}
+/* GRIDS */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px}
+/* TABLES */
+table{width:100%;border-collapse:collapse}
+th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text4);padding:7px 10px;text-align:left;border-bottom:1px solid var(--line);background:var(--bg3);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line);font-size:12px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--bg3)}
+/* BADGES */
+.bx{display:inline-flex;align-items:center;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;white-space:nowrap}
+.b-pago{background:var(--sage-bg);color:var(--sage);border:1px solid var(--sage-dim)}
+.b-pendente{background:var(--gold-bg);color:var(--gold);border:1px solid var(--gold-dim)}
+.b-atrasado{background:var(--rust-bg);color:var(--rust);border:1px solid var(--rust-dim)}
+.b-storymaker{background:var(--plum-bg);color:var(--plum);border:1px solid var(--plum-dim)}
+.b-corporativo{background:var(--slate-bg);color:var(--slate);border:1px solid var(--slate-dim)}
+.b-social{background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal-dim)}
+.b-fixo{background:var(--bg4);color:var(--text3);border:1px solid var(--line2)}
+.b-pessoal{background:var(--rust-bg);color:var(--rust);border:1px solid var(--rust-dim)}
+.b-operacional{background:var(--slate-bg);color:var(--slate);border:1px solid var(--slate-dim)}
+.b-marketing{background:var(--plum-bg);color:var(--plum);border:1px solid var(--plum-dim)}
+.b-prolabore{background:var(--gold-bg);color:var(--gold);border:1px solid var(--gold-dim)}
+/* FORM */
+.fg{margin-bottom:10px}
+.fl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:4px;display:block}
+.inp{height:32px;padding:0 10px;border:1px solid var(--line2);border-radius:var(--r);font-size:12px;background:var(--bg3);color:var(--text);font-family:'Sora',sans-serif;width:100%;transition:border-color .12s}
+.inp:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(212,168,67,.1)}
+textarea.inp{height:54px;padding:7px 10px;resize:vertical}
+select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b6858'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+.fr2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.fr4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px}
+/* ALERTS */
+.al{padding:9px 13px;border-radius:var(--r);font-size:12px;margin-bottom:10px;border:1px solid;font-weight:500}
+.al.d{background:var(--rust-bg);border-color:var(--rust-dim);color:var(--rust)}
+.al.w{background:var(--gold-bg);border-color:var(--gold-dim);color:var(--gold)}
+.al.s{background:var(--sage-bg);border-color:var(--sage-dim);color:var(--sage)}
+.al.i{background:var(--slate-bg);border-color:var(--slate-dim);color:var(--slate)}
+.al.ai{background:var(--plum-bg);border-color:var(--plum-dim);color:var(--plum)}
+/* MODAL */
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.mo.open{display:flex}
+.mbox{background:var(--bg2);border-radius:var(--rxl);width:540px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);border:1px solid var(--line2)}
+.mh{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.mt{font-size:14px;font-weight:700;letter-spacing:-.3px}
+.mb{padding:18px 20px}
+.mf{padding:12px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;background:var(--bg3)}
+/* PROGRESS */
+.pb{height:4px;background:var(--bg4);border-radius:99px;overflow:hidden;margin-top:4px}
+.pf{height:100%;border-radius:99px;transition:width .5s}
+/* MONTH HEADER */
+.mhd{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:var(--bg3);border-radius:var(--r);margin-bottom:6px;border:1px solid var(--line)}
+.mhd-t{font-size:12px;font-weight:700}
+.mhd-m{font-size:11px;color:var(--text3)}
+/* KPI */
+.kpi{background:var(--bg2);border:1px solid var(--line);border-radius:var(--rl);padding:14px 16px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kpi.green::before{background:linear-gradient(90deg,var(--sage),var(--teal))}
+.kpi.gold::before{background:linear-gradient(90deg,var(--gold),#e8c252)}
+.kpi.red::before{background:linear-gradient(90deg,var(--rust),#e86060)}
+.kpi.slate::before{background:linear-gradient(90deg,var(--slate),var(--plum))}
+.kpi.plum::before{background:linear-gradient(90deg,var(--plum),var(--teal))}
+.kl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:6px}
+.kv{font-size:22px;font-weight:700;letter-spacing:-1px;line-height:1;font-family:'JetBrains Mono',monospace}
+.ks{font-size:11px;color:var(--text3);margin-top:4px}
+/* HERO */
+.hero{background:linear-gradient(135deg,#1a1a14,#111110);border:1px solid var(--line2);border-radius:var(--rxl);padding:24px;margin-bottom:14px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;right:-80px;top:-80px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(212,168,67,.08),transparent 65%);pointer-events:none}
+.hero-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--text3);margin-bottom:6px}
+.hero-value{font-size:36px;font-weight:700;letter-spacing:-2px;font-family:'JetBrains Mono',monospace}
+.hero-sub{font-size:12px;color:var(--text3);margin-top:5px}
+.hero-tags{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.hero-tag{padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;border:1px solid}
+.hero-tag.good{border-color:var(--sage-dim);background:var(--sage-bg);color:var(--sage)}
+.hero-tag.bad{border-color:var(--rust-dim);background:var(--rust-bg);color:var(--rust)}
+.hero-tag.warn{border-color:var(--gold-dim);background:var(--gold-bg);color:var(--gold)}
+/* BARS */
+.bar-chart{display:flex;align-items:flex-end;gap:5px;height:72px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.bar-fill{width:100%;border-radius:3px 3px 0 0;min-height:3px;transition:height .5s}
+.bar-label{font-size:9px;color:var(--text4);font-family:'JetBrains Mono',monospace}
+.bar-val{font-size:9px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+/* RING */
+.ring-wrap{position:relative;width:76px;height:76px;flex-shrink:0}
+.ring-wrap svg{transform:rotate(-90deg)}
+.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+/* FLUXO */
+.fc-card{background:var(--bg2);border:1px solid var(--line);border-radius:var(--rl);margin-bottom:10px;overflow:hidden}
+.fc-header{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;transition:background .1s}
+.fc-header:hover{background:var(--bg3)}
+.fc-body{border-top:1px solid var(--line);background:var(--bg3)}
+.fc-row{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--line);font-size:12px}
+.fc-row:last-child{border:none}
+.fc-icon{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
+.fc-icon.cr{background:var(--sage-bg);color:var(--sage)}
+.fc-icon.db{background:var(--rust-bg);color:var(--rust)}
+.fc-total{display:flex;justify-content:space-between;padding:9px 16px;font-size:12px;font-weight:700;background:var(--bg2);border-top:1px solid var(--line)}
+.fc-saldo{display:flex;justify-content:space-between;padding:7px 16px;font-size:11px;color:var(--text3);background:var(--bg2);border-top:1px dashed var(--line)}
+/* PAGAR CARDS */
+.pagar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:14px}
+.pi{background:var(--bg2);border:1px solid var(--line);border-radius:var(--rl);padding:14px 16px;transition:all .15s;position:relative;overflow:hidden}
+.pi::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px;border-radius:0}
+.pi.fixo::before,.pi.pessoal::before{background:var(--rust)}
+.pi.operacional::before{background:var(--slate)}
+.pi.marketing::before{background:var(--plum)}
+.pi.prolabore::before{background:var(--gold)}
+.pi:hover{border-color:var(--line2);background:var(--bg3)}
+.pi.done{opacity:.5}
+.pi-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.pi-desc{font-size:13px;font-weight:600;line-height:1.3}
+.pi-obs{font-size:10px;color:var(--text3);margin-top:2px}
+.pi-val{font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;margin-bottom:10px}
+.pi-val.paid{color:var(--sage)}
+.pi-val.unpaid{color:var(--rust)}
+.pi-foot{display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--line)}
+.pi-dia{font-size:11px;color:var(--text3)}
+.toggle-sw{position:relative;width:32px;height:17px;flex-shrink:0}
+.toggle-sw input{opacity:0;width:0;height:0}
+.toggle-sl{position:absolute;cursor:pointer;inset:0;background:var(--bg5);border-radius:17px;border:1px solid var(--line2);transition:.2s}
+.toggle-sl::before{position:absolute;content:'';height:11px;width:11px;left:2px;bottom:2px;background:var(--text3);transition:.2s;border-radius:50%}
+input:checked+.toggle-sl{background:var(--sage);border-color:var(--sage)}
+input:checked+.toggle-sl::before{transform:translateX(15px);background:#fff}
+/* CONCILIAÇÃO */
+.conc-drop{border:1px dashed var(--line2);border-radius:var(--rl);padding:28px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg3);margin-bottom:14px}
+.conc-drop:hover,.conc-drop.drag{border-color:var(--gold);background:var(--gold-bg)}
+.conc-check{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:9px;cursor:pointer;flex-shrink:0;transition:all .12s}
+.conc-check.ok{background:var(--sage);border-color:var(--sage);color:#fff}
+/* AI */
+.ai-thinking{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--plum-bg);border:1px solid var(--plum-dim);border-radius:var(--r);font-size:12px;color:var(--plum);margin-bottom:12px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.ai-dot{width:6px;height:6px;border-radius:50%;background:var(--plum);animation:pulse 1.2s infinite}
+.ai-dot:nth-child(2){animation-delay:.2s}.ai-dot:nth-child(3){animation-delay:.4s}
+/* DRE */
+.dre-row{display:flex;justify-content:space-between;align-items:center;padding:9px 16px;border-bottom:1px solid var(--line);font-size:12px}
+.dre-row:last-child{border:none}
+.dre-row.total{font-weight:700;font-size:13px;background:var(--bg3);padding:11px 16px}
+.dre-row.sub{padding-left:28px;color:var(--text2)}
+.dre-row.section{background:var(--bg4);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);padding:6px 16px}
+.dre-val{font-family:'JetBrains Mono',monospace;font-weight:600}
+/* HIST */
+.hist-item{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.hist-item:last-child{border:none}
+.hist-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.hist-ts{font-size:10px;color:var(--text4);font-family:'JetBrains Mono',monospace;min-width:112px;flex-shrink:0}
+/* REL CARDS */
+.rel-card{background:var(--bg2);border:1px solid var(--line);border-radius:var(--rl);padding:16px;cursor:pointer;transition:all .15s}
+.rel-card:hover{border-color:var(--gold-dim);background:var(--bg3);transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.rel-icon{font-size:24px;margin-bottom:8px}
+.rel-title{font-size:13px;font-weight:700;margin-bottom:3px}
+.rel-desc{font-size:11px;color:var(--text3)}
+.rel-card .tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:2px 6px;border-radius:99px;margin-bottom:8px;display:inline-block}
+.rel-card .tag.new{background:var(--gold-bg);color:var(--gold);border:1px solid var(--gold-dim)}
+.rel-card .tag.weekly{background:var(--sage-bg);color:var(--sage);border:1px solid var(--sage-dim)}
+/* WEEKLY REPORT */
+.wr-section{margin-bottom:18px}
+.wr-kpi{background:var(--bg3);border:1px solid var(--line);border-radius:var(--r);padding:10px;text-align:center}
+.wr-kpi-v{font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:-.5px}
+.wr-kpi-l{font-size:10px;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.wr-item{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:var(--r);margin-bottom:4px;font-size:12px}
+.wr-item.ok{background:var(--sage-bg);border:1px solid var(--sage-dim)}
+.wr-item.warn{background:var(--gold-bg);border:1px solid var(--gold-dim)}
+.wr-item.bad{background:var(--rust-bg);border:1px solid var(--rust-dim)}
+.wr-action{background:var(--bg3);border:1px solid var(--line);border-radius:var(--r);padding:10px 14px;margin-bottom:6px;font-size:12px;display:flex;gap:10px;align-items:flex-start}
+.wr-action-num{font-size:16px;font-weight:700;color:var(--gold);flex-shrink:0;font-family:'JetBrains Mono',monospace}
+/* INAD */
+.inad-row{background:var(--bg2);border:1px solid var(--line);border-radius:var(--rl);padding:14px 16px;margin-bottom:10px}
+.inad-row.critical{border-color:var(--rust-dim);background:var(--rust-bg)}
+.inad-row.warning{border-color:var(--gold-dim);background:var(--gold-bg)}
+.inad-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.inad-client{font-size:13px;font-weight:700}
+.inad-meta{font-size:11px;color:var(--text3);margin-top:2px}
+.inad-actions{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:11px}
+.inad-actions strong{color:var(--gold)}
+/* KPI INDICATORS */
+.ind-card{background:var(--bg2);border:1px solid var(--line);border-radius:var(--rl);padding:16px;position:relative;overflow:hidden}
+.ind-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.ind-icon{font-size:20px;margin-bottom:8px}
+.ind-val{font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:-1px;margin-bottom:4px}
+.ind-label{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.ind-trend{font-size:11px;margin-top:6px;font-weight:500}
+.ind-trend.up{color:var(--sage)}.ind-trend.down{color:var(--rust)}.ind-trend.neutral{color:var(--text3)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.content>*{animation:fadeUp .2s ease both}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:99px}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="sidebar">
+  <div class="logo-area">
+    <div class="gl-logo">
+      <div class="gl-mark">
+        <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 2L3 6v8l7 4 7-4V6L10 2z" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.6)" stroke-width="1.2"/>
+          <path d="M10 2v18M3 6l7 4 7-4" stroke="rgba(255,255,255,.4)" stroke-width="1"/>
+          <circle cx="10" cy="10" r="2.5" fill="rgba(255,255,255,.85)"/>
+        </svg>
+      </div>
+      <div><div class="gl-name">GL Prime</div><div class="gl-sub">BPO Financeiro</div></div>
+    </div>
+    <div class="gl-client">Cliente: <span>Duda Storymaker</span></div>
+  </div>
+  <nav class="nav">
+    <div class="ns">Principal</div>
+    <div class="ni active" data-p="dashboard" onclick="go(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>Dashboard</div>
+    <div class="ni" data-p="receber" onclick="go(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8h12M8 2l6 6-6 6"/></svg>Contas a receber</div>
+    <div class="ni" data-p="pagar" onclick="go(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 8H2M8 14L2 8l6-6"/></svg>Contas a pagar</div>
+    <div class="ni" data-p="conc" onclick="go(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h5"/><circle cx="12" cy="11" r="3"/><path d="M10.8 11l.9.9 1.5-1.5"/></svg>Conciliação IA</div>
+    <div class="ni" data-p="fluxo" onclick="go(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="1,12 5,6 9,9 15,3"/><polyline points="11,3 15,3 15,7"/></svg>Fluxo de caixa</div>
+    <div class="ns">Análise</div>
+    <div class="ni" data-p="dre" onclick="go(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="8" width="3" height="7"/><rect x="6" y="5" width="3" height="10"/><rect x="11" y="2" width="3" height="13"/></svg>DRE</div>
+    <div class="ni" data-p="indicadores" onclick="go(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg>Indicadores</div>
+    <div class="ni" data-p="comercial" onclick="go(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12l4-4 3 3 7-7"/></svg>Comercial</div>
+    <div class="ni" data-p="relatorios" onclick="go(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2h7l3 3v9H3V2z"/><path d="M10 2v4h4M5 8h6M5 11h4"/></svg>Relatórios</div>
+    <div class="ns">Admin</div>
+    <div class="ni" data-p="hist" onclick="go(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><polyline points="8,4 8,8 11,10"/></svg>Histórico</div>
+    <div class="ni" data-p="config" onclick="go(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M11.1 4.9l-1.4 1.4M4.9 11.1l-1.4 1.4"/></svg>Configurações</div>
+  </nav>
+  <div class="sfooter">GL Prime v5 · Mai 2026 · IA ativa</div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div class="tb-left">
+      <span class="tb-title" id="ptitle">Dashboard</span>
+      <span class="tb-date" id="tb-date"></span>
+    </div>
+    <div class="tba" id="tba"></div>
+  </div>
+  <div class="content" id="content"></div>
+</div>
+
+<div class="mo" id="mo" onclick="closeMoEv(event)">
+  <div class="mbox">
+    <div class="mh"><span class="mt" id="m-title"></span><button class="btn ghost" onclick="closeMo()">✕</button></div>
+    <div class="mb" id="m-body"></div>
+    <div class="mf" id="m-foot"></div>
+  </div>
+</div>
+
+<script>
+const S=window.storage;
+const fmt=v=>'R$\u00a0'+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtK=v=>{const n=Number(v||0);return Math.abs(n)>=1000?'R$\u00a0'+(n/1000).toFixed(1)+'k':fmt(n)};
+const fmtD=d=>{if(!d)return'—';const p=d.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d};
+const mKey=d=>d?d.substring(0,7):'';
+const mLabel=m=>{const mn={1:'Jan',2:'Fev',3:'Mar',4:'Abr',5:'Mai',6:'Jun',7:'Jul',8:'Ago',9:'Set',10:'Out',11:'Nov',12:'Dez'};const p=m.split('-');return(mn[parseInt(p[1])]||m)+' '+p[0]};
+const today=new Date().toISOString().split('T')[0];
+const nowStr=()=>new Date().toLocaleDateString('pt-BR')+' '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+const daysBetween=(a,b)=>Math.round((new Date(b)-new Date(a))/(1000*60*60*24));
+const mono=s=>`<span style="font-family:'JetBrains Mono',monospace">${s}</span>`;
+
+// ─── DEFAULT DATA — ZERADO PARA PREENCHIMENTO MANUAL ─────────────────────────
+const defaultDB={
+  receber:[],
+  pagar:{},
+  conc:[],
+  plano:[
+    {id:1,cod:'1.1',nome:'Storymaker — Evento completo',grupo:'receita'},
+    {id:2,cod:'1.2',nome:'Storymaker — Ceri + Festa',grupo:'receita'},
+    {id:3,cod:'1.3',nome:'Corporativo — 1 vídeo',grupo:'receita'},
+    {id:4,cod:'1.4',nome:'Corporativo — Pacote 4 vídeos',grupo:'receita'},
+    {id:5,cod:'1.5',nome:'Social Media / Gestão',grupo:'receita'},
+    {id:6,cod:'2.1',nome:'Custo operacional fixo',grupo:'despesa_op'},
+    {id:7,cod:'2.2',nome:'Marketing / Tráfego',grupo:'despesa_op'},
+    {id:8,cod:'2.3',nome:'Equipe / Apoio de evento',grupo:'despesa_op'},
+    {id:9,cod:'3.1',nome:'Consórcio GMAC',grupo:'despesa_fix'},
+    {id:10,cod:'3.2',nome:'Pró-labore',grupo:'prolabore'},
+    {id:11,cod:'4.1',nome:'Despesa pessoal no CNPJ',grupo:'alerta_pf'},
+  ],
+  hist:[],
+  config:{saldo_nubank:1104.43,saldo_c6:0,meta_fat:5000,prolabore:2000}
+};
+
+let DB=JSON.parse(JSON.stringify(defaultDB));
+let nR=16,nP=200,nC=50,nPl=12;
+let pg='dashboard';
+let openMonths=new Set(['2026-05','2026-09']);
+let filtMes='todos',filtTipo='todos';
+let pagarMesSel='2026-05';
+
+async function load(){
+  try{const r=await S.get('glprime_v5');if(r?.value){const d=JSON.parse(r.value);DB=d.DB;nR=d.nR;nP=d.nP;nC=d.nC;nPl=d.nPl;}}catch(e){}
+  // Ensure pagar is object keyed by month
+  if(Array.isArray(DB.pagar)){
+    const arr=DB.pagar;DB.pagar={'2026-05':arr};
+  }
+  document.getElementById('tb-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+  render();
+}
+async function save(){try{await S.set('glprime_v5',JSON.stringify({DB,nR,nP,nC,nPl}));}catch(e){}}
+function log(msg,tipo='info'){DB.hist.unshift({ts:nowStr(),msg,tipo});if(DB.hist.length>300)DB.hist.pop();save();}
+
+function go(el){
+  pg=el.dataset.p;
+  document.querySelectorAll('.ni').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  const T={dashboard:'Dashboard',receber:'Contas a receber',pagar:'Contas a pagar',conc:'Conciliação bancária — IA',fluxo:'Fluxo de caixa',dre:'DRE — Demonstrativo de Resultado',indicadores:'Indicadores de performance',comercial:'Análise comercial',relatorios:'Relatórios',hist:'Histórico',plano:'Plano de contas',config:'Configurações'};
+  document.getElementById('ptitle').textContent=T[pg]||pg;
+  render();
+}
+function render(){({dashboard:rDashboard,receber:rReceber,pagar:rPagar,conc:rConc,fluxo:rFluxo,dre:rDRE,indicadores:rIndicadores,comercial:rComercial,relatorios:rRelatorios,hist:rHist,plano:rPlano,config:rConfig})[pg]?.();}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function pagarMes(m){return DB.pagar[m]||[];}
+function pagarTotal(m){return pagarMes(m).reduce((s,x)=>s+Number(x.valor),0);}
+function receitaMes(m){return DB.receber.filter(x=>x.venc?.startsWith(m)).reduce((s,x)=>s+Number(x.valor),0);}
+function allPagarFlat(){const out=[];Object.keys(DB.pagar).forEach(m=>DB.pagar[m].forEach(p=>out.push({...p,mes:m})));return out;}
+
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+function rDashboard(){
+  document.getElementById('tba').innerHTML='';
+  const tRec=DB.receber.filter(x=>x.status!=='pago').reduce((s,x)=>s+Number(x.falta||x.valor),0);
+  const tPago=DB.receber.filter(x=>x.status==='pago').reduce((s,x)=>s+Number(x.valor),0);
+  const tSai=pagarTotal(pagarMesSel);
+  const saldo=Number(DB.config.saldo_nubank);
+  const totalG=DB.receber.reduce((s,x)=>s+Number(x.valor),0);
+  const tPF=pagarMes(pagarMesSel).filter(x=>x.cat==='pessoal').reduce((s,x)=>s+Number(x.valor),0);
+  const mVazios=['2026-06','2026-07','2026-08'].filter(m=>!DB.receber.some(x=>x.venc?.startsWith(m)));
+  const recPct=Math.round(tPago/Math.max(totalG,1)*100);
+  const ms=['2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11'];
+  const msV=ms.map(m=>DB.receber.filter(x=>x.venc?.startsWith(m)).reduce((s,x)=>s+Number(x.valor),0));
+  const mxV=Math.max(...msV,1);
+  const byT={};DB.receber.forEach(r=>{const t=r.tipo||'outro';byT[t]=(byT[t]||0)+Number(r.valor);});
+  const nextEv=DB.receber.filter(x=>x.status!=='pago'&&x.venc>=today).sort((a,b)=>a.venc.localeCompare(b.venc)).slice(0,5);
+  const pct=recPct/100;const r2=28;const circ=2*Math.PI*r2;
+
+  document.getElementById('content').innerHTML=`
+    <div class="hero">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+        <div><div class="hero-label">Portfólio total contratado 2026</div><div class="hero-value">${fmt(totalG)}</div>
+          <div class="hero-sub">${DB.receber.length} contratos · ${DB.receber.filter(x=>x.status==='pago').length} quitados · ${DB.receber.filter(x=>x.status!=='pago').length} pendentes</div></div>
+        <div style="text-align:right"><div style="font-size:10px;color:var(--text3);margin-bottom:4px">Extrato Nubank (Mar–Abr 2026)</div>
+          <div style="font-size:13px;font-weight:600;color:var(--sage)">+R$ 5.316,40 entradas</div>
+          <div style="font-size:13px;font-weight:600;color:var(--rust)">−R$ 3.179,18 saídas</div>
+          <div style="font-size:13px;font-weight:700;color:var(--gold)">= R$ 2.137,22 saldo</div></div>
+      </div>
+      <div class="hero-tags">
+        <span class="hero-tag good">↗ ${fmt(tPago)} recebido</span>
+        <span class="hero-tag warn">⏳ ${fmt(tRec)} a receber</span>
+        ${mVazios.length?`<span class="hero-tag bad">⚠ ${mVazios.length} meses vazios</span>`:''}
+        ${tPF>0?`<span class="hero-tag bad">⚠ ${fmt(tPF)} pessoal no CNPJ</span>`:''}
+      </div>
+    </div>
+    <div class="g4">
+      <div class="kpi slate"><div class="kl">A receber</div><div class="kv" style="color:var(--slate)">${fmt(tRec)}</div><div class="ks">${DB.receber.filter(x=>x.status!=='pago').length} contratos</div></div>
+      <div class="kpi gold"><div class="kl">Saldo Nubank PJ</div><div class="kv" style="color:var(--gold)">${fmt(saldo)}</div><div class="ks">Atualizado 20/abr</div></div>
+      <div class="kpi red"><div class="kl">Saídas Mai/2026</div><div class="kv" style="color:var(--rust)">${fmt(tSai)}</div><div class="ks">${tPF>0?fmt(tPF)+' pessoal':''}</div></div>
+      <div class="kpi green"><div class="kl">Recebido total</div><div class="kv" style="color:var(--sage)">${fmt(tPago)}</div><div class="ks">${recPct}% do portfólio</div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="ch"><span class="ct">Faturamento mensal previsto</span></div><div class="cb">
+        <div class="bar-chart">${msV.map((v,i)=>`<div class="bar-col">
+          <div class="bar-val">${v>0?fmtK(v):''}</div>
+          <div class="bar-fill" style="height:${Math.max(4,Math.round(v/mxV*56))}px;background:${v>0?'var(--plum)':'var(--bg4)'}"></div>
+          <div class="bar-label">${['Mai','Jun','Jul','Ago','Set','Out','Nov'][i]}</div>
+        </div>`).join('')}</div>
+      </div></div>
+      <div class="card"><div class="ch"><span class="ct">Mix de serviços</span></div><div class="cb">
+        <div style="display:flex;gap:14px;align-items:center">
+          <div class="ring-wrap">
+            <svg width="76" height="76" viewBox="0 0 76 76"><circle cx="38" cy="38" r="${r2}" fill="none" stroke="var(--bg4)" stroke-width="7"/><circle cx="38" cy="38" r="${r2}" fill="none" stroke="var(--sage)" stroke-width="7" stroke-dasharray="${circ*pct} ${circ*(1-pct)}" stroke-linecap="round"/></svg>
+            <div class="ring-center"><div style="font-size:15px;font-weight:700;color:var(--sage);font-family:'JetBrains Mono',monospace">${recPct}%</div><div style="font-size:9px;color:var(--text3);font-weight:700">quitado</div></div>
+          </div>
+          <div style="flex:1">${Object.entries(byT).map(([k,v])=>{const tot=Object.values(byT).reduce((s,x)=>s+x,1);return`<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:11px"><span style="font-weight:600;text-transform:capitalize">${k}</span><span style="font-family:'JetBrains Mono',monospace">${fmt(v)}</span></div><div class="pb"><div class="pf" style="width:${Math.round(v/tot*100)}%;background:${k==='storymaker'?'var(--plum)':k==='corporativo'?'var(--slate)':'var(--teal)'}"></div></div></div>`;}).join('')}</div>
+        </div>
+      </div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="ch"><span class="ct">Próximos recebimentos</span><button class="btn sm" onclick="go(document.querySelector('[data-p=receber]'))">Ver todos →</button></div>
+        <table><thead><tr><th>Cliente</th><th>Venc.</th><th>Falta</th><th>Status</th></tr></thead><tbody>
+        ${nextEv.map(r=>`<tr><td style="font-weight:600">${r.cliente}</td><td style="color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:11px">${fmtD(r.venc)}</td><td style="font-weight:700;font-family:'JetBrains Mono',monospace">${fmt(r.falta||r.valor)}</td><td><span class="bx b-${r.status}">${r.status}</span></td></tr>`).join('')}
+        </tbody></table>
+      </div>
+      <div class="card"><div class="ch"><span class="ct">Saúde financeira</span></div><div class="cb">
+        ${[{l:'Receita recebida / total',v:recPct,c:'var(--sage)',t:`${fmt(tPago)} / ${fmt(totalG)}`},
+           {l:'Saídas Mai / meta',v:Math.min(100,Math.round(tSai/DB.config.meta_fat*100)),c:tSai>DB.config.meta_fat?'var(--rust)':'var(--gold)',t:`${fmt(tSai)} / ${fmt(DB.config.meta_fat)}`},
+           {l:'Pessoal no CNPJ',v:Math.min(100,Math.round(tPF/Math.max(tSai,1)*100)),c:'var(--rust)',t:`${fmt(tPF)} — deve ser zero`},
+        ].map(x=>`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:11px"><span style="font-weight:600;color:var(--text2)">${x.l}</span><span style="color:var(--text3)">${x.t}</span></div><div class="pb"><div class="pf" style="width:${x.v}%;background:${x.c}"></div></div></div>`).join('')}
+        ${mVazios.length?`<div class="al w" style="margin-bottom:0;font-size:11px;margin-top:6px">⚠ ${mVazios.map(mLabel).join(', ')} sem eventos — risco de caixa negativo</div>`:''}
+      </div></div>
+    </div>`;
+}
+
+// ─── RECEBER ─────────────────────────────────────────────────────────────────
+function rReceber(){
+  document.getElementById('tba').innerHTML=`<button class="btn primary" onclick="mReceber()">+ Novo contrato</button>`;
+  const grp={};DB.receber.forEach(r=>{const m=mKey(r.venc)||'sem-data';(grp[m]=grp[m]||[]).push(r);});
+  let html='';
+  Object.keys(grp).sort().forEach(m=>{
+    const its=grp[m];const tot=its.reduce((s,x)=>s+Number(x.valor),0);const rec=its.filter(x=>x.status==='pago').reduce((s,x)=>s+Number(x.valor),0);
+    html+=`<div style="margin-bottom:14px"><div class="mhd"><span class="mhd-t">${m==='sem-data'?'Sem data':mLabel(m)}</span><span class="mhd-m">${fmt(tot)} · <span style="color:var(--sage)">${fmt(rec)} recebido</span></span></div>
+    <div class="card" style="margin-bottom:0"><table><thead><tr><th>Cliente</th><th>Tipo</th><th>Pgto</th><th>Total</th><th>Entrada</th><th>Falta</th><th>Evento</th><th>Venc. pgto</th><th>Dt. pagamento</th><th>Status</th><th></th></tr></thead><tbody>
+    ${its.map(r=>`<tr>
+      <td><div style="font-weight:600">${r.cliente}</div>${r.obs?`<div style="font-size:10px;color:var(--text3)">${r.obs}</div>`:''}</td>
+      <td><span class="bx b-${r.tipo}">${r.tipo}</span></td>
+      <td style="font-size:11px;color:var(--text3)">${r.pgto||'pix'}${r.parcelas>1?` ${r.parcelas}x`:''}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-weight:600">${fmt(r.valor)}</td>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--sage)">${r.entrada>0?fmt(r.entrada):'—'}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${r.falta>0?'var(--rust)':'var(--sage)'}">${r.falta>0?fmt(r.falta):'✓'}</td>
+      <td style="font-size:11px;color:var(--text2);white-space:nowrap;font-weight:500">${r.evento?fmtD(r.evento):'—'}</td>
+      <td style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;white-space:nowrap">${fmtD(r.venc)}</td>
+      <td style="font-size:11px;white-space:nowrap;font-family:'JetBrains Mono',monospace;color:${r.dt_pagamento?'var(--sage)':'var(--text4)'}">${r.dt_pagamento?fmtD(r.dt_pagamento):'—'}</td>
+      <td><span class="bx b-${r.status}" style="cursor:pointer" onclick="toggleR(${r.id})">${r.status}</span></td>
+      <td><button class="btn ghost sm" onclick="mReceber(${r.id})">✎</button><button class="btn ghost sm" onclick="delR(${r.id})">✕</button></td>
+    </tr>`).join('')}</tbody></table></div></div>`;
+  });
+  const tG=DB.receber.reduce((s,x)=>s+Number(x.valor),0);const fG=DB.receber.filter(x=>x.status!=='pago').reduce((s,x)=>s+Number(x.falta||x.valor),0);
+  html+=`<div style="display:flex;justify-content:space-between;padding:10px 2px;font-size:12px;border-top:1px solid var(--line);font-weight:700"><span>Total geral</span><span>${fmt(tG)} contratado · <span style="color:var(--rust)">${fmt(fG)} a receber</span></span></div>`;
+  document.getElementById('content').innerHTML=html;
+}
+function toggleR(id){
+  const r=DB.receber.find(x=>x.id===id);if(!r)return;
+  const p=r.status;
+  r.status=r.status==='pago'?'pendente':'pago';
+  if(r.status==='pago'){r.entrada=r.valor;r.falta=0;r.dt_pagamento=today;}
+  else{r.dt_pagamento='';}
+  log(`Status: ${r.cliente} · ${p}→${r.status}${r.status==='pago'?' · pago em '+fmtD(today):''}` ,'status');
+  save();render();
+}
+function delR(id){const r=DB.receber.find(x=>x.id===id);if(r&&confirm(`Remover ${r.cliente}?`)){DB.receber=DB.receber.filter(x=>x.id!==id);log(`Removido: ${r.cliente}`,'del');save();render();}}
+
+// ─── PAGAR — COM FILTRO POR MÊS ──────────────────────────────────────────────
+function rPagar(){
+  document.getElementById('tba').innerHTML=`<button class="btn primary" onclick="mPagar()">+ Nova despesa</button>`;
+  const meses=Object.keys(DB.pagar).sort().reverse();
+  const m=pagarMesSel;
+  const its=pagarMes(m);
+  const tT=its.reduce((s,x)=>s+Number(x.valor),0);
+  const tPg=its.filter(x=>x.pago).reduce((s,x)=>s+Number(x.valor),0);
+  const tPF=its.filter(x=>x.cat==='pessoal').reduce((s,x)=>s+Number(x.valor),0);
+  const pct=Math.round(tPg/Math.max(tT,1)*100);
+  const cats={fixo:{l:'Fixo obrigatório',c:'var(--rust)'},operacional:{l:'Custo operacional',c:'var(--slate)'},marketing:{l:'Marketing',c:'var(--plum)'},prolabore:{l:'Pró-labore',c:'var(--gold)'},pessoal:{l:'Pessoal no CNPJ ⚠',c:'var(--rust)'}};
+
+  let html=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+    <span style="font-size:11px;color:var(--text3);margin-right:4px">Mês:</span>
+    ${meses.map(mx=>`<button class="btn pill ${pagarMesSel===mx?'active':''}" onclick="pagarMesSel='${mx}';rPagar()">${mLabel(mx)}</button>`).join('')}
+    <button class="btn sm" style="margin-left:8px" onclick="addPagarMes()">+ Novo mês</button>
+  </div>`;
+
+  if(tPF>0) html+=`<div class="al d">${fmt(tPF)} em despesas pessoais saindo do CNPJ em ${mLabel(m)}. Definir pró-labore fixo.</div>`;
+
+  html+=`<div class="g3" style="margin-bottom:14px">
+    <div class="kpi red"><div class="kl">Total ${mLabel(m)}</div><div class="kv" style="color:var(--rust)">${fmt(tT)}</div><div class="ks">todas as categorias</div></div>
+    <div class="kpi green"><div class="kl">Pagas</div><div class="kv" style="color:var(--sage)">${fmt(tPg)}</div><div class="ks">${its.filter(x=>x.pago).length}/${its.length} · ${pct}%</div></div>
+    <div class="kpi gold"><div class="kl">A pagar</div><div class="kv" style="color:var(--gold)">${fmt(tT-tPg)}</div><div class="ks">${its.filter(x=>!x.pago).length} pendentes</div></div>
+  </div>
+  <div class="card" style="margin-bottom:14px"><div class="cb" style="padding:12px 16px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px"><span style="font-weight:600">Progresso de pagamentos — ${mLabel(m)}</span><span style="font-family:'JetBrains Mono',monospace;color:var(--gold)">${pct}%</span></div>
+    <div class="pb" style="height:8px"><div class="pf" style="width:${pct}%;background:linear-gradient(90deg,var(--sage),var(--teal))"></div></div>
+  </div></div>`;
+
+  Object.keys(cats).forEach(cat=>{
+    const catIts=its.filter(x=>x.cat===cat);if(!catIts.length)return;
+    const sub=catIts.reduce((s,x)=>s+Number(x.valor),0);const info=cats[cat];
+    html+=`<div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="width:3px;height:14px;background:${info.c};border-radius:2px"></div>
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3)">${info.l}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${info.c};margin-left:auto">${fmt(sub)}/mês</span>
+      </div>
+      <div class="pagar-grid">${catIts.map(p=>`
+        <div class="pi ${cat} ${p.pago?'done':''}">
+          <div class="pi-head">
+            <div><div class="pi-desc">${p.desc}</div><div class="pi-obs">${p.obs||cat}</div></div>
+          </div>
+          <div class="pi-val ${p.pago?'paid':'unpaid'}">${fmt(p.valor)}</div>
+          <div class="pi-foot">
+            <span class="pi-dia">Venc. dia ${p.dia}</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);cursor:pointer">
+                <div class="toggle-sw"><input type="checkbox" ${p.pago?'checked':''} onchange="toggleP('${m}',${p.id},this.checked)"><span class="toggle-sl"></span></div>
+                ${p.pago?'Pago':'Pendente'}
+              </label>
+              <button class="btn ghost sm" onclick="mPagar('${m}',${p.id})">✎</button>
+              <button class="btn ghost sm" onclick="delP('${m}',${p.id})">✕</button>
+            </div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  });
+  html+=`<div style="display:flex;justify-content:space-between;padding:10px 2px;font-size:12px;border-top:1px solid var(--line);font-weight:700"><span>Total ${mLabel(m)}</span><span style="color:var(--rust);font-family:'JetBrains Mono',monospace">${fmt(tT)}</span></div>`;
+  document.getElementById('content').innerHTML=html;
+}
+function addPagarMes(){
+  const m=prompt('Digite o mês (aaaa-mm):','2026-06');
+  if(!m||!/^\d{4}-\d{2}$/.test(m))return;
+  if(!DB.pagar[m]) DB.pagar[m]=[];
+  pagarMesSel=m;save();rPagar();
+}
+function toggleP(m,id,val){
+  const p=pagarMes(m).find(x=>x.id===id);if(!p)return;
+  p.pago=val;log(`Despesa ${val?'paga':'reaberta'}: ${p.desc} (${mLabel(m)})`,'status');save();setTimeout(rPagar,0);
+}
+function delP(m,id){
+  const p=pagarMes(m).find(x=>x.id===id);
+  if(p&&confirm(`Remover ${p.desc}?`)){DB.pagar[m]=DB.pagar[m].filter(x=>x.id!==id);log(`Removido: ${p.desc}`,'del');save();render();}
+}
+
+// ─── CONCILIAÇÃO ─────────────────────────────────────────────────────────────
+function rConc(){
+  document.getElementById('tba').innerHTML=`<button class="btn" onclick="mConc()">+ Lançar manual</button><button class="btn primary" onclick="rodarIA()">✦ Analisar com IA</button>`;
+  const pend=DB.conc.filter(x=>!x.ok).length;const inc=DB.conc.filter(x=>x.inc).length;
+  const totCr=DB.conc.filter(x=>x.tipo==='credito').reduce((s,x)=>s+Number(x.valor),0);
+  const totDb=DB.conc.filter(x=>x.tipo==='debito').reduce((s,x)=>s+Number(x.valor),0);
+  const tPessoal=DB.conc.filter(x=>x.cat==='pessoal').reduce((s,x)=>s+Number(x.valor),0);
+  let html=`
+    <div class="al ai">✦ <strong>IA ativa</strong> — Clique em "Analisar com IA" para análise completa dos lançamentos com o Claude. Ou arraste um extrato CSV/OFX para importar.</div>
+    <div class="conc-drop" ondragover="evDrag(event)" ondrop="dropFile(event)" onclick="document.getElementById('finp').click()">
+      <input type="file" id="finp" style="display:none" accept=".csv,.txt,.ofx" onchange="handleFile(this.files[0])">
+      <div style="font-size:24px;margin-bottom:6px">📄</div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:3px">Arraste o extrato CSV/TXT ou clique</div>
+      <div style="font-size:11px;color:var(--text3)">Nubank · C6 Bank · A IA categoriza e sinaliza inconsistências</div>
+    </div>
+    <div class="g4" style="margin-bottom:14px">
+      <div class="kpi green"><div class="kl">Entradas</div><div class="kv" style="color:var(--sage)">${fmt(totCr)}</div></div>
+      <div class="kpi red"><div class="kl">Saídas</div><div class="kv" style="color:var(--rust)">${fmt(totDb)}</div></div>
+      <div class="kpi gold"><div class="kl">Resultado</div><div class="kv" style="color:${totCr-totDb>=0?'var(--sage)':'var(--rust)'}">${fmt(totCr-totDb)}</div></div>
+      <div class="kpi slate"><div class="kl">Inconsistências</div><div class="kv" style="color:${inc>0?'var(--rust)':'var(--sage)'}">${inc}</div><div class="ks">${pend} não conciliados</div></div>
+    </div>`;
+  if(inc>0) html+=`<div class="al d">⚠ ${inc} inconsistências · ${fmt(tPessoal)} em despesas pessoais no CNPJ</div>`;
+  const grp={};DB.conc.forEach(c=>{const m=mKey(c.data)||'sem';(grp[m]=grp[m]||[]).push(c);});
+  Object.keys(grp).sort().reverse().forEach(m=>{
+    const its=grp[m].sort((a,b)=>b.data.localeCompare(a.data));
+    html+=`<div style="margin-bottom:14px"><div class="mhd"><span class="mhd-t">${m==='sem'?'Sem data':mLabel(m)}</span><span class="mhd-m">${its.length} lançamentos · ${its.filter(x=>x.inc).length} inconsist.</span></div>
+    <div class="card" style="margin-bottom:0"><table>
+      <thead><tr><th>Data</th><th>Descrição</th><th>Cat.</th><th>Valor</th><th>Conc.</th><th>Flag</th><th>Obs</th><th></th></tr></thead>
+      <tbody>${its.map(c=>`<tr style="${c.inc?'background:rgba(192,81,58,.04)':''}">
+        <td style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;white-space:nowrap">${fmtD(c.data)}</td>
+        <td style="font-weight:500;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.desc}">${c.desc}</td>
+        <td><select style="border:none;background:transparent;font-size:11px;color:var(--text3);cursor:pointer;font-family:'Sora',sans-serif" onchange="catConc(${c.id},this.value)">
+          ${['storymaker','corporativo','operacional','marketing','fixo','pessoal','prolabore'].map(ct=>`<option value="${ct}" ${c.cat===ct?'selected':''}>${ct}</option>`).join('')}
+        </select></td>
+        <td style="font-weight:700;color:${c.tipo==='credito'?'var(--sage)':'var(--rust)'};font-family:'JetBrains Mono',monospace;white-space:nowrap">${c.tipo==='credito'?'+':'-'}${fmt(c.valor)}</td>
+        <td><div class="conc-check ${c.ok?'ok':''}" onclick="toggleConc(${c.id})">${c.ok?'✓':''}</div></td>
+        <td>${c.inc?`<span class="bx b-atrasado">⚠ inc</span>`:`<span class="bx b-pago">ok</span>`}</td>
+        <td style="font-size:10px;color:var(--text3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.obs||''}">${c.obs||'—'}</td>
+        <td><button class="btn ghost sm" onclick="mConc(${c.id})">✎</button><button class="btn ghost sm" onclick="delC(${c.id})">✕</button></td>
+      </tr>`).join('')}</tbody>
+    </table></div></div>`;
+  });
+  document.getElementById('content').innerHTML=html;
+}
+async function rodarIA(){
+  let key=localStorage.getItem('gl_ai_key')||'';
+  if(!key){key=(prompt('Chave API Anthropic (começa com sk-ant-):')||'').trim();if(!key)return;localStorage.setItem('gl_ai_key',key);}
+  const el=document.getElementById('content');const div=document.createElement('div');
+  div.className='ai-thinking';div.innerHTML='<div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span>Claude analisando lançamentos...</span>';
+  el.prepend(div);
+  const tPF=DB.conc.filter(x=>x.cat==='pessoal').reduce((s,x)=>s+Number(x.valor),0);
+  const tCr=DB.conc.filter(x=>x.tipo==='credito').reduce((s,x)=>s+Number(x.valor),0);
+  const tDb=DB.conc.filter(x=>x.tipo==='debito').reduce((s,x)=>s+Number(x.valor),0);
+  const resumo=DB.conc.slice(0,20).map(c=>`${c.data}|${c.tipo==='credito'?'+':'-'}${c.valor}|${c.desc}|${c.cat}|inc:${c.inc}`).join('\n');
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:`Analista financeira GL Prime BPO. Analise este extrato de uma Storymaker (eventos/casamentos) em Ourinhos SP. Seja direta, sem introdução.\n\nEntradas: R$${tCr.toFixed(2)} · Saídas: R$${tDb.toFixed(2)} · Pessoal no CNPJ: R$${tPF.toFixed(2)}\n\nLançamentos (primeiros 20):\n${resumo}\n\nEm até 180 palavras:\n1. Diagnóstico (2 linhas)\n2. Problemas críticos (lista 3-4 itens)\n3. Próxima ação imediata`}]})});
+    if(!res.ok){if(res.status===401){localStorage.removeItem('gl_ai_key');div.innerHTML='<span style="color:var(--rust)">Chave API inválida — recarregue e tente novamente.</span>';}else{div.innerHTML=`<span style="color:var(--text3)">Erro na API (${res.status}). Tente novamente.</span>`;}return;}
+    const data=await res.json();const txt=data.content?.filter(x=>x.type==='text').map(x=>x.text).join('')||'Análise indisponível.';
+    div.style.cssText='background:var(--plum-bg);border:1px solid var(--plum-dim);border-radius:var(--r);padding:14px;margin-bottom:14px;display:block';
+    div.innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--plum);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">✦ Análise GL Prime IA</div><div style="font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap">${txt}</div>`;
+    log('IA: análise de conciliação executada','add');
+  }catch(e){div.innerHTML='<span style="color:var(--text3)">IA indisponível. Verifique sua conexão e tente novamente.</span>';}
+}
+function evDrag(e){e.preventDefault();}
+function dropFile(e){e.preventDefault();handleFile(e.dataTransfer?.files[0]);}
+function parseCSVLine(l){const r=[];let cur='',inQ=false;for(let i=0;i<l.length;i++){if(l[i]==='"'){inQ=!inQ;}else if(l[i]===','&&!inQ){r.push(cur.trim());cur='';}else{cur+=l[i];}}r.push(cur.trim());return r;}
+function handleFile(f){
+  if(!f)return;const r=new FileReader();
+  r.onload=e=>{
+    const lines=e.target.result.split('\n').filter(l=>l.trim()&&l.includes(','));
+    let added=0,incs=0;
+    lines.forEach(line=>{
+      const c=parseCSVLine(line);if(c.length<3)return;
+      const [data,desc,...rest]=c;const val=parseFloat(rest.find(x=>!isNaN(parseFloat(x.replace(',','.'))))||0);
+      if(!data||!desc||!val)return;
+      const dl=desc.toLowerCase();let cat='operacional',inc=false;
+      if(dl.includes('gmac')||dl.includes('consórcio'))cat='fixo';
+      else if(dl.includes('renner')||dl.includes('salão')||dl.includes('cinema')||dl.includes('beleza')||dl.includes('supermercado')){cat='pessoal';inc=true;incs++;}
+      else if(dl.includes('ads')||dl.includes('facebook'))cat='marketing';
+      else if(dl.includes('english')||dl.includes('inglês')||dl.includes('midway')){cat='pessoal';inc=true;incs++;}
+      const isDb=val<0||rest.some(x=>x.toLowerCase().includes('deb'));
+      DB.conc.push({id:nC++,data:data||today,desc,valor:Math.abs(val),tipo:isDb?'debito':'credito',banco:'importado',cat,ok:!inc,inc,obs:inc?'Detectado como inconsistência':''});added++;
+    });
+    log(`Extrato importado: ${added} lançamentos · ${incs} inconsistências`,'add');save();alert(`✅ ${added} importados · ⚠ ${incs} inconsistências`);rConc();
+  };r.readAsText(f);
+}
+function catConc(id,cat){const c=DB.conc.find(x=>x.id===id);if(c){c.cat=cat;save();rConc();}}
+function toggleConc(id){const c=DB.conc.find(x=>x.id===id);if(!c)return;c.ok=!c.ok;log(`Conciliação: ${c.desc}→${c.ok?'ok':'pendente'}`,'status');save();rConc();}
+function delC(id){const c=DB.conc.find(x=>x.id===id);if(c&&confirm('Remover?')){DB.conc=DB.conc.filter(x=>x.id!==id);log(`Removido: ${c.desc}`,'del');save();rConc();}}
+
+// ─── FLUXO ────────────────────────────────────────────────────────────────────
+function rFluxo(){
+  document.getElementById('tba').innerHTML='';
+  const sf=pagarTotal('2026-05');
+  const s0=Number(DB.config.saldo_nubank);
+  const ms=['2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11'];
+  let acum=s0;
+  const allV=ms.map(m=>DB.receber.filter(x=>x.venc?.startsWith(m)&&x.status!=='pago').reduce((s,x)=>s+Number(x.falta||x.valor),0));
+  const mxV=Math.max(...allV,1);
+  let html=`<div class="al i">Saldo base: <strong style="font-family:'JetBrains Mono',monospace">${fmt(s0)}</strong> · Saídas fixas ref. Mai/2026: <strong style="font-family:'JetBrains Mono',monospace">${fmt(sf)}</strong></div>
+  <div class="card" style="margin-bottom:14px"><div class="ch"><span class="ct">Visão geral</span></div><div class="cb">
+    <div class="bar-chart">${allV.map((v,i)=>`<div class="bar-col">
+      <div class="bar-val">${v>0?fmtK(v):''}</div>
+      <div class="bar-fill" style="height:${Math.max(4,Math.round(v/mxV*56))}px;background:${v>0?'var(--sage)':'var(--bg4)'}"></div>
+      <div class="bar-label">${['Mai','Jun','Jul','Ago','Set','Out','Nov'][i]}</div>
+    </div>`).join('')}</div>
+  </div></div>`;
+  ms.forEach(m=>{
+    const evs=DB.receber.filter(x=>x.venc?.startsWith(m)&&x.status!=='pago');
+    const ent=evs.reduce((s,x)=>s+Number(x.falta||x.valor),0);
+    const saidas=DB.pagar[m]?pagarTotal(m):sf;
+    const res=ent-saidas;acum+=res;
+    const isOpen=openMonths.has(m);const rc=res>=0?'var(--sage)':'var(--rust)';const ac=acum>=0?'var(--sage)':'var(--rust)';
+    html+=`<div class="fc-card">
+      <div class="fc-header" onclick="toggleMes('${m}')">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:11px;color:var(--text3)">${isOpen?'▾':'▸'}</span>
+          <span style="font-size:13px;font-weight:700">${mLabel(m)}</span>
+          ${evs.length===0?'<span class="bx b-atrasado">Sem eventos</span>':''}
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          ${ent>0?`<span style="font-size:12px;font-weight:600;color:var(--sage);font-family:'JetBrains Mono',monospace">+${fmt(ent)}</span>`:''}
+          <span style="font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace">-${fmt(saidas)}</span>
+          <span style="font-size:13px;font-weight:700;color:${rc};font-family:'JetBrains Mono',monospace">${res>=0?'+':''}${fmt(res)}</span>
+        </div>
+      </div>
+      ${isOpen?`<div class="fc-body">
+        ${evs.length?evs.map(e=>`<div class="fc-row"><div class="fc-icon cr">↗</div><span style="flex:1;font-weight:500">${e.cliente}</span><span class="bx b-${e.tipo}" style="margin-right:8px">${e.tipo}</span><span style="font-weight:700;color:var(--sage);font-family:'JetBrains Mono',monospace">+${fmt(e.falta||e.valor)}</span></div>`).join(''):
+        `<div class="fc-row" style="color:var(--text3)"><div class="fc-icon db">—</div><span>Sem eventos confirmados</span><span style="margin-left:auto;color:var(--rust)">R$ 0</span></div>`}
+        <div style="border-top:1px solid var(--line)"></div>
+        ${(DB.pagar[m]||pagarMes('2026-05')).filter(x=>x.cat!=='pessoal').slice(0,5).map(p=>`<div class="fc-row" style="opacity:.65"><div class="fc-icon db">↙</div><span style="flex:1;color:var(--text3)">${p.desc}</span><span style="font-family:'JetBrains Mono',monospace;color:var(--rust)">-${fmt(p.valor)}</span></div>`).join('')}
+        <div class="fc-total"><span>Resultado do mês</span><span style="color:${rc};font-family:'JetBrains Mono',monospace">${res>=0?'+':''}${fmt(res)}</span></div>
+        <div class="fc-saldo"><span>Saldo acumulado estimado</span><span style="color:${ac};font-weight:700;font-family:'JetBrains Mono',monospace">${fmt(acum)}</span></div>
+      </div>`:''}
+    </div>`;
+  });
+  const vaz=['2026-06','2026-07','2026-08'].filter(m=>!DB.receber.some(x=>x.venc?.startsWith(m)));
+  if(vaz.length) html+=`<div class="al d">${vaz.map(mLabel).join(', ')} sem eventos. Acionar captação agora.</div>`;
+  document.getElementById('content').innerHTML=html;
+}
+function toggleMes(m){if(openMonths.has(m))openMonths.delete(m);else openMonths.add(m);rFluxo();}
+
+// ─── DRE COMPLETO ─────────────────────────────────────────────────────────────
+let dreMes='2026-05';
+function rDRE(){
+  document.getElementById('tba').innerHTML='';
+  const ms=['2026-03','2026-04','2026-05','2026-09','2026-10','2026-11'];
+  // Receitas
+  const recBruta=DB.receber.filter(x=>x.venc?.startsWith(dreMes)).reduce((s,x)=>s+Number(x.valor),0);
+  const recRecebida=DB.receber.filter(x=>x.venc?.startsWith(dreMes)&&x.status==='pago').reduce((s,x)=>s+Number(x.valor),0);
+  const recPendente=recBruta-recRecebida;
+  // Custos
+  const its=pagarMes(dreMes).length?pagarMes(dreMes):pagarMes('2026-05');
+  const custoOp=its.filter(x=>x.cat==='operacional'||x.cat==='marketing').reduce((s,x)=>s+Number(x.valor),0);
+  const custoFixo=its.filter(x=>x.cat==='fixo').reduce((s,x)=>s+Number(x.valor),0);
+  const prolabore=its.filter(x=>x.cat==='prolabore').reduce((s,x)=>s+Number(x.valor),0);
+  const pessoal=its.filter(x=>x.cat==='pessoal').reduce((s,x)=>s+Number(x.valor),0);
+  const totalCusto=custoOp+custoFixo+prolabore;
+  const lucroOp=recRecebida-totalCusto;
+  const lucroLiquido=lucroOp-pessoal;
+  const margem=recRecebida>0?Math.round(lucroOp/recRecebida*100):0;
+
+  let html=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+    <span style="font-size:11px;color:var(--text3);margin-right:4px">Mês:</span>
+    ${ms.map(m=>`<button class="btn pill ${dreMes===m?'active':''}" onclick="dreMes='${m}';rDRE()">${mLabel(m)}</button>`).join('')}
+  </div>`;
+
+  html+=`<div class="g5" style="margin-bottom:16px">
+    <div class="kpi green"><div class="kl">Receita bruta</div><div class="kv" style="color:var(--sage)">${fmt(recBruta)}</div><div class="ks">Contratos do mês</div></div>
+    <div class="kpi slate"><div class="kl">Recebido</div><div class="kv" style="color:var(--slate)">${fmt(recRecebida)}</div><div class="ks">${fmt(recPendente)} pendente</div></div>
+    <div class="kpi red"><div class="kl">Custos totais</div><div class="kv" style="color:var(--rust)">${fmt(totalCusto)}</div><div class="ks">excl. pessoal</div></div>
+    <div class="kpi ${lucroOp>=0?'green':'red'}"><div class="kl">Resultado op.</div><div class="kv" style="color:${lucroOp>=0?'var(--sage)':'var(--rust)'}">${fmt(lucroOp)}</div><div class="ks">Margem ${margem}%</div></div>
+    <div class="kpi gold"><div class="kl">Margem líquida</div><div class="kv" style="color:var(--gold)">${margem}%</div><div class="ks">${lucroOp>=0?'Positivo':'Negativo'}</div></div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="ch"><span class="ct">DRE — ${mLabel(dreMes)}</span></div>
+      <div class="dre-row section"><span>RECEITAS</span></div>
+      <div class="dre-row"><span>Receita bruta contratada</span><span class="dre-val" style="color:var(--sage)">${fmt(recBruta)}</span></div>
+      <div class="dre-row sub"><span>(-) Receita pendente de recebimento</span><span class="dre-val" style="color:var(--rust)">-${fmt(recPendente)}</span></div>
+      <div class="dre-row total"><span>= Receita líquida recebida</span><span class="dre-val" style="color:var(--sage)">${fmt(recRecebida)}</span></div>
+      <div class="dre-row section"><span>CUSTOS OPERACIONAIS</span></div>
+      <div class="dre-row sub"><span>(-) Custo operacional + marketing</span><span class="dre-val" style="color:var(--rust)">-${fmt(custoOp)}</span></div>
+      <div class="dre-row sub"><span>(-) Despesas fixas (consórcio)</span><span class="dre-val" style="color:var(--rust)">-${fmt(custoFixo)}</span></div>
+      <div class="dre-row sub"><span>(-) Pró-labore</span><span class="dre-val" style="color:var(--gold)">-${fmt(prolabore)}</span></div>
+      <div class="dre-row total"><span>= Resultado operacional</span><span class="dre-val" style="color:${lucroOp>=0?'var(--sage)':'var(--rust)'}">${lucroOp>=0?'+':''}${fmt(lucroOp)}</span></div>
+      <div class="dre-row section"><span>AJUSTES</span></div>
+      <div class="dre-row sub" style="color:var(--rust)"><span>(-) Despesas pessoais no CNPJ ⚠</span><span class="dre-val">-${fmt(pessoal)}</span></div>
+      <div class="dre-row total" style="border-top:2px solid var(--line2)"><span>= Resultado líquido ajustado</span><span class="dre-val" style="color:${lucroLiquido>=0?'var(--sage)':'var(--rust)'}; font-size:14px">${lucroLiquido>=0?'+':''}${fmt(lucroLiquido)}</span></div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">Composição das despesas</span></div>
+      <div class="cb">
+        ${its.map(p=>{const pct=Math.round(Number(p.valor)/Math.max(its.reduce((s,x)=>s+Number(x.valor),1),1)*100);return`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:11px"><span style="font-weight:600">${p.desc}</span><span style="font-family:'JetBrains Mono',monospace">${fmt(p.valor)}</span></div><div class="pb"><div class="pf" style="width:${pct}%;background:${p.cat==='pessoal'?'var(--rust)':p.cat==='fixo'?'var(--rust)':p.cat==='prolabore'?'var(--gold)':p.cat==='marketing'?'var(--plum)':'var(--slate)'}"></div></div><div style="font-size:10px;color:var(--text3);margin-top:2px">${p.cat} · ${pct}% do total</div></div>`;}).join('')}
+        ${pessoal>0?`<div class="al d" style="margin-top:8px;margin-bottom:0;font-size:11px">⚠ ${fmt(pessoal)} de despesas pessoais reduzem o resultado em ${Math.round(pessoal/Math.max(recRecebida,1)*100)}%</div>`:''}
+      </div>
+    </div>
+  </div>
+  ${recBruta>0?`<div class="al ${margem>=20?'s':margem>=0?'w':'d'}">
+    Margem operacional de ${margem}% — ${margem>=30?'✓ Excelente. Manter gestão de custos.':margem>=15?'⚠ Aceitável mas abaixo do ideal. Meta: 25-35%.':'⚠ Abaixo do mínimo. Revisar precificação e eliminar pessoal do CNPJ.'}
+  </div>`:''}`;
+  document.getElementById('content').innerHTML=html;
+}
+
+// ─── INDICADORES ─────────────────────────────────────────────────────────────
+function rIndicadores(){
+  document.getElementById('tba').innerHTML='';
+  const totalG=DB.receber.reduce((s,x)=>s+Number(x.valor),0);
+  const tPago=DB.receber.filter(x=>x.status==='pago').reduce((s,x)=>s+Number(x.valor),0);
+  const tFalta=DB.receber.filter(x=>x.status!=='pago').reduce((s,x)=>s+Number(x.falta||x.valor),0);
+  const saldo=Number(DB.config.saldo_nubank);
+  const tSai=pagarTotal('2026-05');
+  const tPF=pagarMes('2026-05').filter(x=>x.cat==='pessoal').reduce((s,x)=>s+Number(x.valor),0);
+  const tickets=DB.receber.filter(x=>x.valor>0).map(x=>Number(x.valor));
+  const ticketMed=tickets.length?tickets.reduce((s,x)=>s+x,0)/tickets.length:0;
+  const taxaRec=Math.round(tPago/Math.max(totalG,1)*100);
+  const mesesOcup=new Set(DB.receber.map(x=>mKey(x.venc))).size;
+  const mesesVazios=['2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11'].filter(m=>!DB.receber.some(x=>x.venc?.startsWith(m))).length;
+  const parcelados=DB.receber.filter(x=>x.parcelas>1).length;
+  const custoEvento=pagarTotal('2026-05')-pagarMes('2026-05').filter(x=>x.cat==='prolabore').reduce((s,x)=>s+Number(x.valor),0);
+  const margemCorp=Math.round((508-340.46)/508*100);
+
+  const inds=[
+    {icon:'💰',label:'Ticket médio storymaker',val:fmt(ticketMed),sub:'Mercado: R$900–R$3.500',trend:'Abaixo do potencial',ttype:'down',c:'gold'},
+    {icon:'📈',label:'Taxa de recebimento',val:`${taxaRec}%`,sub:`${DB.receber.filter(x=>x.status==='pago').length} de ${DB.receber.length} quitados`,trend:taxaRec>60?'Saudável':'Requer atenção',ttype:taxaRec>60?'up':'down',c:'slate'},
+    {icon:'📅',label:'Meses com evento',val:`${mesesOcup}`,sub:`${mesesVazios} meses vazios em 2026`,trend:mesesVazios>0?`Jun/Jul/Ago sem cobertura`:'Agenda completa',ttype:mesesVazios>0?'down':'up',c:'plum'},
+    {icon:'🔄',label:'Contratos parcelados',val:`${parcelados}`,sub:`${Math.round(parcelados/DB.receber.length*100)}% do portfólio`,trend:'Risco de inadimplência parcial',ttype:'neutral',c:'slate'},
+    {icon:'💸',label:'Custo operacional/mês',val:fmt(custoEvento),sub:'Excluindo pró-labore',trend:`${Math.round(custoEvento/Math.max(tSai,1)*100)}% das saídas totais`,ttype:'neutral',c:'gold'},
+    {icon:'⚠️',label:'Pessoal no CNPJ',val:fmt(tPF),sub:`${Math.round(tPF/Math.max(tSai,1)*100)}% das saídas`,trend:'Deve ser R$0 — usar pró-labore',ttype:'down',c:'red'},
+    {icon:'🎯',label:'Margem corporativo atual',val:`-70%`,sub:'Cobra R$150, custo R$508',trend:'Precisa reajuste imediato',ttype:'down',c:'red'},
+    {icon:'🏦',label:'Saldo disponível',val:fmt(saldo),sub:'Nubank PJ · Abr 2026',trend:saldo>tSai?'Cobre 1 mês de saídas':'Atenção ao caixa',ttype:saldo>tSai?'up':'down',c:'green'},
+  ];
+
+  const colorMap={gold:'var(--gold)',slate:'var(--slate)',plum:'var(--plum)',red:'var(--rust)',green:'var(--sage)'};
+  const gradMap={gold:'linear-gradient(90deg,var(--gold),#e8c252)',slate:'linear-gradient(90deg,var(--slate),var(--plum))',plum:'linear-gradient(90deg,var(--plum),var(--teal))',red:'linear-gradient(90deg,var(--rust),#e86060)',green:'linear-gradient(90deg,var(--sage),var(--teal))'};
+
+  document.getElementById('content').innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+      ${inds.map(d=>`<div class="ind-card" style="border-color:${d.ttype==='down'?'var(--rust-dim)':d.ttype==='up'?'var(--sage-dim)':'var(--line)'}">
+        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:${gradMap[d.c]}"></div>
+        <div class="ind-icon">${d.icon}</div>
+        <div class="ind-val" style="color:${colorMap[d.c]}">${d.val}</div>
+        <div class="ind-label">${d.label}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">${d.sub}</div>
+        <div class="ind-trend ${d.ttype}">${d.ttype==='up'?'↑':d.ttype==='down'?'↓':'→'} ${d.trend}</div>
+      </div>`).join('')}
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="ch"><span class="ct">Distribuição de receitas por mês</span></div>
+        <div class="cb">
+          ${['2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11'].map(m=>{
+            const v=receitaMes(m);const pct=Math.round(v/Math.max(totalG,1)*100);
+            return`<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:11px">
+              <span style="font-weight:600">${mLabel(m)}</span><span style="font-family:'JetBrains Mono',monospace">${fmt(v)} ${v===0?'<span style="color:var(--rust)">⚠ vazio</span>':''}</span></div>
+              <div class="pb"><div class="pf" style="width:${pct}%;background:${v===0?'var(--bg4)':'var(--sage)'}"></div></div>
+            </div>`;}).join('')}
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct">Alertas e recomendações</span></div>
+        <div class="cb">
+          <div class="al d" style="margin-bottom:8px">🔴 Precificação corporativa: R$150 vs custo real R$508 — déficit de 70%. Reajuste urgente.</div>
+          <div class="al d" style="margin-bottom:8px">🔴 ${fmt(tPF)} pessoal no CNPJ todo mês. Implanta pró-labore de R$2.000 e zera isso.</div>
+          <div class="al w" style="margin-bottom:8px">🟡 Jun/Jul/Ago 2026 sem eventos — ${fmt(tSai*3)} de saídas sem cobertura. Captar agora.</div>
+          <div class="al w" style="margin-bottom:8px">🟡 ${parcelados} contratos parcelados — monitorar parcelas semanalmente.</div>
+          <div class="al s" style="margin-bottom:0">🟢 Storymaker de casamentos saudável — ${DB.receber.filter(x=>x.tipo==='storymaker').length} contratos confirmados até Nov/2026.</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ─── COMERCIAL ────────────────────────────────────────────────────────────────
+function rComercial(){
+  document.getElementById('tba').innerHTML=`<button class="btn primary" onclick="mReceber()">+ Novo contrato</button>`;
+  const ms=['todos','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11'];
+  const msL={todos:'Todos','2026-05':'Mai','2026-06':'Jun','2026-07':'Jul','2026-08':'Ago','2026-09':'Set','2026-10':'Out','2026-11':'Nov'};
+  const tipos=['todos','storymaker','corporativo','social'];
+  let base=DB.receber;
+  if(filtMes!=='todos')base=base.filter(x=>x.venc?.startsWith(filtMes));
+  if(filtTipo!=='todos')base=base.filter(x=>x.tipo===filtTipo);
+  const totF=base.reduce((s,x)=>s+Number(x.valor),0);const totPg=base.filter(x=>x.status==='pago').reduce((s,x)=>s+Number(x.valor),0);
+  const tks=base.map(x=>Number(x.valor)).filter(x=>x>0);const tMed=tks.length?tks.reduce((s,x)=>s+x,0)/tks.length:0;
+  const byT={};base.forEach(r=>{const t=r.tipo||'outro';(byT[t]=byT[t]||[]).push(r);});
+  const byPg={};base.forEach(r=>{const p=r.pgto||'pix';byPg[p]=(byPg[p]||0)+Number(r.valor);});
+  const parcs=base.filter(x=>Number(x.parcelas)>1);
+  document.getElementById('content').innerHTML=`
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+      ${ms.map(m=>`<button class="btn pill ${filtMes===m?'active':''}" onclick="filtMes='${m}';rComercial()">${msL[m]}</button>`).join('')}
+      <div style="width:1px;background:var(--line);margin:0 2px"></div>
+      ${tipos.map(t=>`<button class="btn pill ${filtTipo===t?'active':''}" onclick="filtTipo='${t}';rComercial()">${t}</button>`).join('')}
+    </div>
+    <div class="g4" style="margin-bottom:14px">
+      <div class="kpi slate"><div class="kl">Volume filtrado</div><div class="kv" style="color:var(--plum)">${fmt(totF)}</div><div class="ks">${base.length} contratos</div></div>
+      <div class="kpi green"><div class="kl">Recebido</div><div class="kv" style="color:var(--sage)">${fmt(totPg)}</div><div class="ks">${Math.round(totPg/Math.max(totF,1)*100)}%</div></div>
+      <div class="kpi gold"><div class="kl">Ticket médio</div><div class="kv" style="color:var(--gold)">${fmt(tMed)}</div></div>
+      <div class="kpi red"><div class="kl">A receber</div><div class="kv" style="color:var(--rust)">${fmt(totF-totPg)}</div><div class="ks">${base.filter(x=>x.status!=='pago').length} pendentes</div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="ch"><span class="ct">Por tipo de serviço</span></div><div class="cb">
+        ${Object.entries(byT).map(([t,its])=>{const tv=its.reduce((s,x)=>s+Number(x.valor),0);const tmk=tv/Math.max(its.length,1);return`<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px"><span style="font-weight:700;text-transform:capitalize">${t}</span><span style="font-family:'JetBrains Mono',monospace">${fmt(tv)}</span></div><div class="pb"><div class="pf" style="width:${Math.round(tv/Math.max(totF,1)*100)}%;background:${t==='storymaker'?'var(--plum)':t==='corporativo'?'var(--slate)':'var(--teal)'}"></div></div><div style="font-size:10px;color:var(--text3);margin-top:3px">${its.length} contratos · ticket ${fmt(tmk)}</div></div>`;}).join('')}
+      </div></div>
+      <div class="card"><div class="ch"><span class="ct">Formas de pagamento</span></div><div class="cb">
+        ${Object.entries(byPg).map(([p,v])=>`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:12px"><span style="font-weight:600;text-transform:capitalize">${p}</span><span style="font-family:'JetBrains Mono',monospace;font-weight:700">${fmt(v)}</span></div><div class="pb"><div class="pf" style="width:${Math.round(Number(v)/Math.max(totF,1)*100)}%;background:var(--slate)"></div></div></div>`).join('')}
+        ${parcs.length?`<div class="al w" style="margin-top:8px;margin-bottom:0;font-size:11px">${parcs.length} parcelados · ${fmt(parcs.reduce((s,x)=>s+Number(x.falta),0))} a receber</div>`:''}
+      </div></div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">Contratos (${base.length})</span></div>
+      ${base.length?`<table><thead><tr><th>Cliente</th><th>Tipo</th><th>Pgto</th><th>Parc.</th><th>Total</th><th>Entrada</th><th>Falta</th><th>Venc.</th><th>Status</th><th></th></tr></thead><tbody>
+      ${base.map(r=>`<tr><td style="font-weight:600">${r.cliente}</td><td><span class="bx b-${r.tipo}">${r.tipo}</span></td><td style="font-size:11px;color:var(--text3)">${r.pgto||'pix'}</td><td style="font-size:11px;text-align:center">${r.parcelas>1?r.parcelas+'x':'—'}</td><td style="font-family:'JetBrains Mono',monospace;font-weight:600">${fmt(r.valor)}</td><td style="font-family:'JetBrains Mono',monospace;color:var(--sage)">${r.entrada>0?fmt(r.entrada):'—'}</td><td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${r.falta>0?'var(--rust)':'var(--sage)'}">${r.falta>0?fmt(r.falta):'✓'}</td><td style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;white-space:nowrap">${fmtD(r.venc)}</td><td><span class="bx b-${r.status}" style="cursor:pointer" onclick="toggleR(${r.id})">${r.status}</span></td><td><button class="btn ghost sm" onclick="mReceber(${r.id})">✎</button><button class="btn ghost sm" onclick="delR(${r.id})">✕</button></td></tr>`).join('')}
+      </tbody></table>`:`<div style="text-align:center;padding:24px;color:var(--text3)">Nenhum contrato neste filtro</div>`}
+    </div>`;
+}
+
+// ─── RELATÓRIOS ───────────────────────────────────────────────────────────────
+function rRelatorios(){
+  document.getElementById('tba').innerHTML='';
+  document.getElementById('content').innerHTML=`
+    <div class="g3" style="margin-bottom:8px">
+      <div class="rel-card" onclick="rRelSemanal()"><div class="tag weekly">Enviar toda segunda</div><div class="rel-icon">📊</div><div class="rel-title">Relatório Semanal</div><div class="rel-desc">Semana fechada + previsão da próxima semana + saldo de caixa. Ideal para envio toda segunda-feira.</div></div>
+      <div class="rel-card" onclick="rRelMensal()"><div class="tag new">Completo</div><div class="rel-icon">📅</div><div class="rel-title">Fechamento Mensal</div><div class="rel-desc">DRE completo, inadimplência, comparativo de meses, alertas e ações recomendadas.</div></div>
+      <div class="rel-card" onclick="go(document.querySelector('[data-p=fluxo]'))"><div class="rel-icon">💰</div><div class="rel-title">Projeção de Caixa</div><div class="rel-desc">Fluxo de caixa completo mês a mês com saldo acumulado e alertas de risco.</div></div>
+      <div class="rel-card" onclick="rRelInad()"><div class="tag new">Detalhado</div><div class="rel-icon">⚠️</div><div class="rel-title">Inadimplência</div><div class="rel-desc">Contratos em aberto por mês de contratação, dias de atraso e ações recomendadas para cada caso.</div></div>
+      <div class="rel-card" onclick="go(document.querySelector('[data-p=indicadores]'))"><div class="tag new">KPIs</div><div class="rel-icon">🎯</div><div class="rel-title">Indicadores (KPIs)</div><div class="rel-desc">Ticket médio, taxa de recebimento, margem, ocupação de agenda e alertas estratégicos.</div></div>
+      <div class="rel-card" onclick="go(document.querySelector('[data-p=dre]'))"><div class="rel-icon">📋</div><div class="rel-title">DRE Mensal</div><div class="rel-desc">Demonstrativo de resultado com receita, custos, pró-labore, margem operacional e líquida.</div></div>
+    </div>`;
+}
+
+// ─── RELATÓRIO SEMANAL (ENVIO 2ª FEIRA) ─────────────────────────────────────
+function rRelSemanal(){
+  document.getElementById('tba').innerHTML=`<button class="btn" onclick="rRelatorios()">← Voltar</button><button class="btn primary" onclick="window.print()">🖨 Imprimir / PDF</button>`;
+  const hoje=new Date();
+  // Semana passada (seg a dom)
+  const diasSemana=hoje.getDay()||7;
+  const iniSem=new Date(hoje.getTime()-(diasSemana+6)*864e5);
+  const fimSem=new Date(hoje.getTime()-diasSemana*864e5);
+  const iniStr=iniSem.toISOString().split('T')[0];const fimStr=fimSem.toISOString().split('T')[0];
+  // Próxima semana
+  const proxIni=new Date(hoje.getTime()+(7-diasSemana+1)*864e5);
+  const proxFim=new Date(proxIni.getTime()+6*864e5);
+  const proxIniStr=proxIni.toISOString().split('T')[0];const proxFimStr=proxFim.toISOString().split('T')[0];
+
+  const tRec=DB.receber.filter(x=>x.status!=='pago').reduce((s,x)=>s+Number(x.falta||x.valor),0);
+  const tPago=DB.receber.filter(x=>x.status==='pago').reduce((s,x)=>s+Number(x.valor),0);
+  const saldo=Number(DB.config.saldo_nubank);
+  const tSai=pagarTotal('2026-05');
+  const tPF=pagarMes('2026-05').filter(x=>x.cat==='pessoal').reduce((s,x)=>s+Number(x.valor),0);
+  const totalG=DB.receber.reduce((s,x)=>s+Number(x.valor),0);
+  const recPct=Math.round(tPago/Math.max(totalG,1)*100);
+  // Eventos semana fechada
+  const eventosSem=DB.receber.filter(x=>x.venc>=iniStr&&x.venc<=fimStr);
+  // Previsão próxima semana
+  const prevSem=DB.receber.filter(x=>x.status!=='pago'&&x.venc>=proxIniStr&&x.venc<=proxFimStr);
+  // Vencendo em 14 dias
+  const em14=new Date(Date.now()+14*864e5).toISOString().split('T')[0];
+  const urgentes=DB.receber.filter(x=>x.status!=='pago'&&x.venc>=today&&x.venc<=em14).sort((a,b)=>a.venc.localeCompare(b.venc));
+  // Pagar nesta semana
+  const pagarProxSem=pagarMes('2026-05').filter(x=>!x.pago&&x.dia!=='--'&&Number(x.dia)>=proxIni.getDate()&&Number(x.dia)<=proxFim.getDate());
+  const mVazios=['2026-06','2026-07','2026-08'].filter(m=>!DB.receber.some(x=>x.venc?.startsWith(m)));
+  const cobrancasPend=DB.receber.filter(x=>x.status!=='pago'&&x.entrada>0);
+
+  document.getElementById('content').innerHTML=`<div style="max-width:680px;margin:0 auto">
+    <div style="margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--line)">
+      <div style="font-size:22px;font-weight:700;letter-spacing:-.6px;margin-bottom:4px">📊 Relatório Semanal</div>
+      <div style="font-size:12px;color:var(--text3)">Duda Storymaker · Semana ${iniSem.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})} – ${fimSem.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'})}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">Enviado em ${hoje.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'})} · GL Prime BPO</div>
+    </div>
+
+    <div class="wr-section">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text2)">💰 Situação do caixa agora</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <div class="wr-kpi"><div class="wr-kpi-v" style="color:var(--gold)">${fmt(saldo)}</div><div class="wr-kpi-l">Saldo caixa</div></div>
+        <div class="wr-kpi"><div class="wr-kpi-v" style="color:var(--slate)">${fmt(tRec)}</div><div class="wr-kpi-l">A receber</div></div>
+        <div class="wr-kpi"><div class="wr-kpi-v" style="color:var(--sage)">${fmt(tPago)}</div><div class="wr-kpi-l">Recebido</div></div>
+        <div class="wr-kpi"><div class="wr-kpi-v" style="color:var(--plum)">${recPct}%</div><div class="wr-kpi-l">Quitado</div></div>
+      </div>
+    </div>
+
+    <div class="wr-section">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text2)">📋 O que aconteceu esta semana</div>
+      ${eventosSem.length?eventosSem.map(r=>`<div class="wr-item ${r.status==='pago'?'ok':'warn'}"><span><strong>${r.cliente}</strong> — evento ${fmtD(r.venc)}</span><span style="font-family:'JetBrains Mono',monospace;font-weight:700">${r.status==='pago'?`✓ ${fmt(r.valor)}`:`Falta ${fmt(r.falta||r.valor)}`}</span></div>`).join('')
+      :`<div style="font-size:12px;color:var(--text3);padding:8px 0">Sem eventos registrados na semana.</div>`}
+    </div>
+
+    <div class="wr-section">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text2)">🔭 Previsão da próxima semana (${proxIni.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})} – ${proxFim.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})})</div>
+      ${prevSem.length?prevSem.map(r=>`<div class="wr-item warn"><span><strong>${r.cliente}</strong> — vence ${fmtD(r.venc)}</span><span style="font-family:'JetBrains Mono',monospace;font-weight:700">${fmt(r.falta||r.valor)}</span></div>`).join('')
+      :`<div style="font-size:12px;color:var(--text3);padding:8px 0">Nenhum recebimento previsto para a próxima semana.</div>`}
+      ${pagarProxSem.length?`<div style="margin-top:8px">${pagarProxSem.map(p=>`<div class="wr-item bad"><span>Pagar: <strong>${p.desc}</strong></span><span style="font-family:'JetBrains Mono',monospace;font-weight:700">${fmt(p.valor)}</span></div>`).join('')}</div>`:''}
+    </div>
+
+    ${urgentes.length?`<div class="wr-section">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text2)">⏳ Cobranças urgentes (próximos 14 dias)</div>
+      ${urgentes.map(r=>`<div class="wr-item warn"><div><strong>${r.cliente}</strong><span style="font-size:10px;color:var(--text3);margin-left:6px">vence ${fmtD(r.venc)}</span></div><span style="font-family:'JetBrains Mono',monospace;font-weight:700">${fmt(r.falta||r.valor)}</span></div>`).join('')}
+      <div style="font-size:11px;color:var(--text3);margin-top:6px">Total a cobrar: <strong style="font-family:'JetBrains Mono',monospace">${fmt(urgentes.reduce((s,x)=>s+Number(x.falta||x.valor),0))}</strong></div>
+    </div>`:''}
+
+    ${cobrancasPend.length?`<div class="wr-section">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text2)">💳 Contratos com parcelas pendentes</div>
+      ${cobrancasPend.map(r=>`<div class="wr-item warn"><div><strong>${r.cliente}</strong><span style="font-size:10px;color:var(--text3);margin-left:6px">${r.parcelas>1?r.parcelas+'x':''}</span></div><span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--rust)">Falta ${fmt(r.falta)}</span></div>`).join('')}
+    </div>`:''}
+
+    <div class="wr-section">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text2)">🚀 Ações para esta semana</div>
+      ${urgentes.length?`<div class="wr-action"><span class="wr-action-num">1</span><div><strong>Cobrar ${urgentes.length} cliente(s)</strong> — total de ${fmt(urgentes.reduce((s,x)=>s+Number(x.falta||x.valor),0))} vencem em até 14 dias. Mensagem no WhatsApp.</div></div>`:''}
+      ${mVazios.length?`<div class="wr-action"><span class="wr-action-num">${urgentes.length?2:1}</span><div><strong>Fechar eventos para ${mVazios.map(mLabel).join(', ')}</strong> — ${fmt(tSai*mVazios.length)} de saídas sem cobertura nesses meses.</div></div>`:''}
+      ${tPF>0?`<div class="wr-action"><span class="wr-action-num">${(urgentes.length?1:0)+(mVazios.length?1:0)+1}</span><div><strong>Separar ${fmt(tPF)} de despesas pessoais do CNPJ</strong> — transferir para pró-labore fixo antes do dia 5.</div></div>`:''}
+    </div>
+
+    <div style="margin-top:20px;padding:12px;background:var(--bg3);border-radius:var(--r);font-size:11px;color:var(--text3);text-align:center;border:1px solid var(--line)">
+      Relatório GL Prime BPO · ${hoje.toLocaleDateString('pt-BR')} · Dúvidas: responda esta mensagem ou WhatsApp (14) 99910-0625
+    </div>
+  </div>`;
+}
+
+// ─── FECHAMENTO MENSAL COMPLETO ───────────────────────────────────────────────
+function rRelMensal(){
+  document.getElementById('tba').innerHTML=`<button class="btn" onclick="rRelatorios()">← Voltar</button><button class="btn primary" onclick="window.print()">🖨 PDF</button>`;
+  const ms=['2026-04','2026-05'];
+  const hoje=new Date();
+  const m='2026-05';const mAnt='2026-04';
+  const rec=receitaMes(m);const recAnt=receitaMes(mAnt);
+  const sai=pagarTotal(m);const saiAnt=pagarTotal(mAnt);
+  const its=pagarMes(m);const itsAnt=pagarMes(mAnt);
+  const recRecebida=DB.receber.filter(x=>x.venc?.startsWith(m)&&x.status==='pago').reduce((s,x)=>s+Number(x.valor),0);
+  const custoOp=its.filter(x=>x.cat==='operacional'||x.cat==='marketing').reduce((s,x)=>s+Number(x.valor),0);
+  const custoFixo=its.filter(x=>x.cat==='fixo').reduce((s,x)=>s+Number(x.valor),0);
+  const prolabore=its.filter(x=>x.cat==='prolabore').reduce((s,x)=>s+Number(x.valor),0);
+  const pessoal=its.filter(x=>x.cat==='pessoal').reduce((s,x)=>s+Number(x.valor),0);
+  const totalCusto=custoOp+custoFixo+prolabore;
+  const lucroOp=recRecebida-totalCusto;
+  const margem=recRecebida>0?Math.round(lucroOp/recRecebida*100):0;
+  const saldo=Number(DB.config.saldo_nubank);
+  const inadimp=DB.receber.filter(x=>x.status!=='pago'&&x.falta>0&&x.venc<today);
+  const parcelados=DB.receber.filter(x=>x.parcelas>1&&x.status!=='pago');
+  const tRec=DB.receber.filter(x=>x.status!=='pago').reduce((s,x)=>s+Number(x.falta||x.valor),0);
+  const mVazios=['2026-06','2026-07','2026-08'].filter(m=>!DB.receber.some(x=>x.venc?.startsWith(m)));
+  const varRec=recAnt>0?Math.round((rec-recAnt)/recAnt*100):0;
+
+  document.getElementById('content').innerHTML=`<div style="max-width:720px;margin:0 auto">
+    <div style="margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--line)">
+      <div style="font-size:22px;font-weight:700;letter-spacing:-.6px;margin-bottom:4px">📅 Fechamento Mensal — ${mLabel(m)}</div>
+      <div style="font-size:12px;color:var(--text3)">Duda Storymaker · Gerado em ${hoje.toLocaleDateString('pt-BR')} · GL Prime BPO</div>
+    </div>
+
+    <div class="g4" style="margin-bottom:16px">
+      <div class="kpi green"><div class="kl">Receita bruta</div><div class="kv" style="color:var(--sage)">${fmt(rec)}</div><div class="ks">${varRec>=0?'+':''}${varRec}% vs ${mLabel(mAnt)}</div></div>
+      <div class="kpi ${lucroOp>=0?'green':'red'}"><div class="kl">Resultado op.</div><div class="kv" style="color:${lucroOp>=0?'var(--sage)':'var(--rust)'}">${fmt(lucroOp)}</div><div class="ks">Margem ${margem}%</div></div>
+      <div class="kpi gold"><div class="kl">Saldo caixa</div><div class="kv" style="color:var(--gold)">${fmt(saldo)}</div><div class="ks">Nubank PJ</div></div>
+      <div class="kpi slate"><div class="kl">Total a receber</div><div class="kv" style="color:var(--slate)">${fmt(tRec)}</div><div class="ks">${DB.receber.filter(x=>x.status!=='pago').length} contratos</div></div>
+    </div>
+
+    <div class="g2" style="margin-bottom:14px">
+      <div class="card"><div class="ch"><span class="ct">DRE — ${mLabel(m)}</span></div>
+        <div class="dre-row"><span>Receita bruta</span><span class="dre-val" style="color:var(--sage)">${fmt(rec)}</span></div>
+        <div class="dre-row sub"><span>(-) Pendente de recebimento</span><span class="dre-val" style="color:var(--rust)">-${fmt(rec-recRecebida)}</span></div>
+        <div class="dre-row total"><span>= Receita líquida recebida</span><span class="dre-val" style="color:var(--sage)">${fmt(recRecebida)}</span></div>
+        <div class="dre-row sub"><span>(-) Custos operacionais</span><span class="dre-val">-${fmt(custoOp)}</span></div>
+        <div class="dre-row sub"><span>(-) Consórcio (fixo)</span><span class="dre-val">-${fmt(custoFixo)}</span></div>
+        <div class="dre-row sub"><span>(-) Pró-labore</span><span class="dre-val" style="color:var(--gold)">-${fmt(prolabore)}</span></div>
+        <div class="dre-row total"><span>= Resultado operacional</span><span class="dre-val" style="color:${lucroOp>=0?'var(--sage)':'var(--rust)'}">${fmt(lucroOp)}</span></div>
+        <div class="dre-row sub" style="color:var(--rust)"><span>(-) Pessoal no CNPJ ⚠</span><span class="dre-val">-${fmt(pessoal)}</span></div>
+        <div class="dre-row total" style="font-size:13px"><span>= Resultado líquido ajustado</span><span class="dre-val" style="color:${lucroOp-pessoal>=0?'var(--sage)':'var(--rust)'}">${fmt(lucroOp-pessoal)}</span></div>
+      </div>
+      <div class="card"><div class="ch"><span class="ct">Comparativo ${mLabel(mAnt)} × ${mLabel(m)}</span></div>
+        <div class="cb">
+          ${[{l:'Receita bruta',a:recAnt,b:rec},{l:'Total despesas',a:saiAnt,b:sai},{l:'Resultado',a:recAnt-saiAnt,b:rec-sai}].map(x=>{const diff=x.b-x.a;const pct=x.a>0?Math.round(diff/x.a*100):0;return`<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em">${x.l}</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <div style="flex:1;text-align:center;background:var(--bg3);border-radius:var(--r);padding:6px"><div style="font-size:10px;color:var(--text3)">${mLabel(mAnt)}</div><div style="font-weight:700;font-family:'JetBrains Mono',monospace;font-size:13px">${fmt(x.a)}</div></div>
+              <div style="font-size:11px;color:${diff>=0?'var(--sage)':'var(--rust)'};font-weight:700;text-align:center">${diff>=0?'↑':'↓'}<br>${Math.abs(pct)}%</div>
+              <div style="flex:1;text-align:center;background:var(--bg3);border-radius:var(--r);padding:6px"><div style="font-size:10px;color:var(--text3)">${mLabel(m)}</div><div style="font-weight:700;font-family:'JetBrains Mono',monospace;font-size:13px">${fmt(x.b)}</div></div>
+            </div></div>`;}).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="ch"><span class="ct">Inadimplência ${mLabel(m)}</span></div>
+      ${inadimp.length?`<table><thead><tr><th>Cliente</th><th>Contratado em</th><th>Tipo serviço</th><th>Vencimento</th><th>Dias atraso</th><th>Falta</th></tr></thead><tbody>
+        ${inadimp.map(r=>{const dias=daysBetween(r.venc,today);return`<tr><td style="font-weight:600">${r.cliente}</td><td style="color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:11px">${fmtD(r.contratado||r.venc)}</td><td><span class="bx b-${r.tipo}">${r.tipo}</span></td><td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--rust)">${fmtD(r.venc)}</td><td style="color:var(--rust);font-weight:700;font-family:'JetBrains Mono',monospace">${dias}d</td><td style="font-weight:700;color:var(--rust);font-family:'JetBrains Mono',monospace">${fmt(r.falta)}</td></tr>`;}).join('')}
+      </tbody></table>`:`<div style="text-align:center;padding:20px;color:var(--text3)">✓ Nenhuma inadimplência registrada</div>`}
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="ch"><span class="ct">Alertas e recomendações do mês</span></div>
+      <div class="cb">
+        ${pessoal>0?`<div class="al d">🔴 ${fmt(pessoal)} em despesas pessoais no CNPJ. Implantar pró-labore de R$${DB.config.prolabore.toFixed(0)}/mês e zerar esse item.</div>`:''}
+        ${mVazios.length?`<div class="al w">🟡 ${mVazios.map(mLabel).join(', ')} sem eventos confirmados — risco de caixa vazio.</div>`:''}
+        ${parcelados.length?`<div class="al w">🟡 ${parcelados.length} contratos parcelados em aberto — total de ${fmt(parcelados.reduce((s,x)=>s+Number(x.falta),0))} a receber.</div>`:''}
+        ${margem<15?`<div class="al d">🔴 Margem operacional de ${margem}% — abaixo do mínimo saudável (25%). Revisar precificação.</div>`:''}
+        <div class="al s">🟢 Portfólio total de ${fmt(DB.receber.reduce((s,x)=>s+Number(x.valor),0))} contratado até Nov/2026 — base sólida para trabalhar.</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;padding:12px;background:var(--bg3);border-radius:var(--r);font-size:11px;color:var(--text3);text-align:center;border:1px solid var(--line)">
+      Fechamento mensal GL Prime BPO · ${hoje.toLocaleDateString('pt-BR')} · (14) 99910-0625
+    </div>
+  </div>`;
+}
+
+// ─── INADIMPLÊNCIA DETALHADA ─────────────────────────────────────────────────
+function rRelInad(){
+  document.getElementById('tba').innerHTML=`<button class="btn" onclick="rRelatorios()">← Voltar</button>`;
+  const atrasados=DB.receber.filter(x=>x.status!=='pago'&&x.falta>0&&x.venc<today).sort((a,b)=>a.venc.localeCompare(b.venc));
+  const parcelados=DB.receber.filter(x=>x.parcelas>1&&x.status!=='pago'&&x.falta>0).sort((a,b)=>a.venc.localeCompare(b.venc));
+  const pendentes=DB.receber.filter(x=>x.status!=='pago'&&x.falta>0&&x.venc>=today).sort((a,b)=>a.venc.localeCompare(b.venc));
+
+  const acao=(r,dias)=>{
+    if(dias>30) return{txt:'Entrar em contato imediatamente. Se não houver resposta em 48h, enviar mensagem formal via WhatsApp com valor atualizado e prazo.',urgencia:'d'};
+    if(dias>14) return{txt:'Enviar lembrete de cobrança pelo WhatsApp. Propor acordo de parcelamento se necessário.',urgencia:'w'};
+    if(dias>0) return{txt:'Enviar lembrete de cobrança gentil. Confirmar data de pagamento.',urgencia:'w'};
+    return{txt:'Monitorar — vencimento próximo. Enviar lembrete preventivo 3 dias antes.',urgencia:'i'};
+  };
+
+  let html=`<div class="g3" style="margin-bottom:14px">
+    <div class="kpi red"><div class="kl">Em atraso</div><div class="kv" style="color:var(--rust)">${atrasados.length}</div><div class="ks">${fmt(atrasados.reduce((s,x)=>s+Number(x.falta),0))}</div></div>
+    <div class="kpi gold"><div class="kl">Parcelados abertos</div><div class="kv" style="color:var(--gold)">${parcelados.length}</div><div class="ks">${fmt(parcelados.reduce((s,x)=>s+Number(x.falta),0))}</div></div>
+    <div class="kpi slate"><div class="kl">Total a receber</div><div class="kv" style="color:var(--slate)">${pendentes.length+atrasados.length}</div><div class="ks">${fmt([...atrasados,...pendentes].reduce((s,x)=>s+Number(x.falta),0))}</div></div>
+  </div>`;
+
+  if(atrasados.length){
+    html+=`<div style="font-size:12px;font-weight:700;color:var(--rust);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">⚠ Contratos em atraso</div>`;
+    atrasados.forEach(r=>{
+      const dias=daysBetween(r.venc,today);const a=acao(r,dias);
+      html+=`<div class="inad-row ${dias>30?'critical':'warning'}">
+        <div class="inad-header">
+          <div><div class="inad-client">${r.cliente}</div><div class="inad-meta">Contratado em ${fmtD(r.contratado||'—')} · ${r.tipo} · ${r.parcelas>1?r.parcelas+'x parcelas':'à vista'}</div></div>
+          <div style="text-align:right"><div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--rust)">${fmt(r.falta)}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${dias} dias em atraso · venceu ${fmtD(r.venc)}</div></div>
+        </div>
+        <div class="inad-actions"><strong>Ação recomendada:</strong> ${a.txt}</div>
+      </div>`;
+    });
+  }
+
+  if(parcelados.length){
+    html+=`<div style="font-size:12px;font-weight:700;color:var(--gold);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.06em">💳 Parcelamentos em aberto</div>`;
+    parcelados.forEach(r=>{
+      const dias=r.venc<today?daysBetween(r.venc,today):0;const a=acao(r,dias);
+      html+=`<div class="inad-row ${dias>0?'warning':''}">
+        <div class="inad-header">
+          <div><div class="inad-client">${r.cliente}</div><div class="inad-meta">Contratado em ${fmtD(r.contratado||'—')} · ${r.parcelas}x parcelas · Venc. final ${fmtD(r.venc)}</div></div>
+          <div style="text-align:right"><div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--gold)">${fmt(r.falta)}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${fmt(r.entrada)} pago de ${fmt(r.valor)}</div></div>
+        </div>
+        <div class="inad-actions"><strong>Ação recomendada:</strong> ${a.txt}</div>
+      </div>`;
+    });
+  }
+
+  if(pendentes.filter(x=>!parcelados.find(p=>p.id===x.id)).length){
+    html+=`<div style="font-size:12px;font-weight:700;color:var(--text2);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.06em">📅 Pendentes futuros</div>
+    <div class="card"><table><thead><tr><th>Cliente</th><th>Contratado</th><th>Tipo</th><th>Vencimento</th><th>Dias restantes</th><th>Falta</th></tr></thead><tbody>
+    ${pendentes.filter(x=>!parcelados.find(p=>p.id===x.id)).map(r=>{const dias=daysBetween(today,r.venc);return`<tr>
+      <td style="font-weight:600">${r.cliente}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)">${fmtD(r.contratado||'—')}</td>
+      <td><span class="bx b-${r.tipo}">${r.tipo}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px;white-space:nowrap">${fmtD(r.venc)}</td>
+      <td style="font-family:'JetBrains Mono',monospace;color:${dias<14?'var(--gold)':'var(--text3)'}">${dias}d</td>
+      <td style="font-weight:700;font-family:'JetBrains Mono',monospace">${fmt(r.falta)}</td>
+    </tr>`;}).join('')}
+    </tbody></table></div>`;
+  }
+
+  if(!atrasados.length&&!parcelados.length&&!pendentes.length){
+    html+=`<div class="al s">✓ Nenhuma inadimplência registrada. Excelente!</div>`;
+  }
+  document.getElementById('content').innerHTML=html;
+}
+
+// ─── HISTÓRICO ────────────────────────────────────────────────────────────────
+function rHist(){
+  document.getElementById('tba').innerHTML=`<button class="btn" onclick="if(confirm('Limpar?')){DB.hist=[];save();rHist();}">Limpar</button>`;
+  document.getElementById('content').innerHTML=DB.hist.length===0?`<div style="text-align:center;padding:48px;color:var(--text3)">Nenhuma alteração.</div>`:
+    `<div class="card"><div style="padding:0 4px">${DB.hist.map(h=>`<div class="hist-item"><div class="hist-dot" style="background:${h.tipo==='add'?'var(--sage)':h.tipo==='del'?'var(--rust)':h.tipo==='edit'?'var(--slate)':'var(--gold)'}"></div><div class="hist-ts">${h.ts}</div><div style="font-size:12px;color:var(--text2)">${h.msg}</div></div>`).join('')}</div></div>`;
+}
+
+// ─── PLANO ────────────────────────────────────────────────────────────────────
+function rPlano(){
+  document.getElementById('tba').innerHTML=`<button class="btn primary" onclick="mPlano()">+ Nova conta</button>`;
+  const gls={receita:'Receitas (1.x)',despesa_op:'Custos operacionais (2.x)',despesa_fix:'Despesas fixas (3.x)',prolabore:'Pró-labore (3.x)',alerta_pf:'Alertas PF no CNPJ (4.x)'};
+  let html='';
+  Object.keys(gls).forEach(g=>{
+    const its=DB.plano.filter(x=>x.grupo===g);if(!its.length)return;
+    html+=`<div style="margin-bottom:14px"><div class="mhd"><span class="mhd-t">${gls[g]}</span></div><div class="card" style="margin-bottom:0"><table><thead><tr><th>Código</th><th>Nome</th><th>Grupo</th><th></th></tr></thead><tbody>
+    ${its.map(p=>`<tr><td style="font-family:'JetBrains Mono',monospace;color:var(--text3)">${p.cod}</td><td style="font-weight:600">${p.nome}</td><td><span class="bx b-fixo">${g}</span></td><td><button class="btn ghost sm" onclick="delPl(${p.id})">✕</button></td></tr>`).join('')}
+    </tbody></table></div></div>`;
+  });
+  document.getElementById('content').innerHTML=html;
+}
+
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+function rConfig(){
+  document.getElementById('tba').innerHTML='';
+  document.getElementById('content').innerHTML=`<div class="g2">
+    <div class="card"><div class="ch"><span class="ct">Parâmetros financeiros</span></div><div class="cb">
+      <div class="fg"><label class="fl">Saldo Nubank PJ (R$)</label><input class="inp" type="number" id="cfg-nu" value="${DB.config.saldo_nubank}" oninput="updCfg()"></div>
+      <div class="fg"><label class="fl">Saldo C6 Bank (R$)</label><input class="inp" type="number" id="cfg-c6" value="${DB.config.saldo_c6||0}" oninput="updCfg()"></div>
+      <div class="fg"><label class="fl">Meta faturamento mensal</label><input class="inp" type="number" id="cfg-meta" value="${DB.config.meta_fat}" oninput="updCfg()"></div>
+      <div class="fg"><label class="fl">Pró-labore definido</label><input class="inp" type="number" id="cfg-pro" value="${DB.config.prolabore}" oninput="updCfg()"></div>
+      <div class="al s" style="margin-bottom:0">Salvo automaticamente.</div>
+    </div></div>
+    <div class="card"><div class="ch"><span class="ct">Cliente</span></div><div class="cb" style="padding:0"><table>
+      <tr><td style="color:var(--text3);font-size:11px;padding:9px 14px">Nome</td><td style="font-weight:600">Maria Eduarda Bianzeno</td></tr>
+      <tr><td style="color:var(--text3);font-size:11px;padding:9px 14px">CNPJ</td><td style="font-family:'JetBrains Mono',monospace">61.920.218/0001-59</td></tr>
+      <tr><td style="color:var(--text3);font-size:11px;padding:9px 14px">Email</td><td>dudabianzeno@gmail.com</td></tr>
+      <tr><td style="color:var(--text3);font-size:11px;padding:9px 14px">Tel</td><td>(14) 99674-1814</td></tr>
+      <tr><td style="color:var(--text3);font-size:11px;padding:9px 14px">Banco PJ</td><td>Nubank (cc. 471470382-0) + C6</td></tr>
+      <tr><td style="color:var(--text3);font-size:11px;padding:9px 14px">Consultora</td><td style="font-weight:600;color:var(--gold)">Gabriela Lima · GL Prime</td></tr>
+      <tr><td style="color:var(--text3);font-size:11px;padding:9px 14px">Início BPO</td><td>02/04/2026 · R$200 implant. + R$250/mês</td></tr>
+    </table></div></div>
+  </div>
+  <div class="card" style="border-color:var(--rust-dim);margin-top:4px"><div class="ch" style="border-color:var(--rust-dim)"><span class="ct" style="color:var(--rust)">Zona de risco</span></div><div class="cb" style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+    <div><div style="font-size:12px;font-weight:600;margin-bottom:3px">Reiniciar sistema do zero</div><div style="font-size:11px;color:var(--text3)">Apaga contratos, contas a pagar, conciliação e histórico. Mantém plano de contas e configurações.</div></div>
+    <button class="btn" style="border-color:var(--rust-dim);color:var(--rust);white-space:nowrap;flex-shrink:0" onclick="resetarSistema()">Reiniciar dados</button>
+  </div></div>`;
+}
+function updCfg(){
+  DB.config.saldo_nubank=parseFloat(document.getElementById('cfg-nu')?.value)||0;
+  DB.config.saldo_c6=parseFloat(document.getElementById('cfg-c6')?.value)||0;
+  DB.config.meta_fat=parseFloat(document.getElementById('cfg-meta')?.value)||5000;
+  DB.config.prolabore=parseFloat(document.getElementById('cfg-pro')?.value)||2000;
+  save();
+}
+function resetarSistema(){
+  if(!confirm('⚠ Isso apagará TODOS os dados operacionais (contratos, contas a pagar, conciliação e histórico). O plano de contas e as configurações serão mantidos.\n\nDeseja continuar?'))return;
+  if(!confirm('Confirmar reset completo? Esta ação não pode ser desfeita.'))return;
+  DB.receber=[];DB.pagar={};DB.conc=[];DB.hist=[];
+  nR=16;nP=200;nC=50;
+  log('Sistema reiniciado do zero pela consultora GL Prime','edit');
+  save();render();
+  alert('✅ Sistema reiniciado. Pode começar a operação!');
+}
+
+// ─── MODAIS ───────────────────────────────────────────────────────────────────
+function mReceber(id){
+  const r=id?DB.receber.find(x=>x.id===id):{};
+  document.getElementById('m-title').textContent=id?'Editar contrato':'Novo contrato';
+  document.getElementById('m-body').innerHTML=`
+    <div class="fg"><label class="fl">Cliente</label><input class="inp" id="mr-c" value="${r.cliente||''}"></div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Tipo</label><select class="inp" id="mr-t"><option value="storymaker" ${(!r.tipo||r.tipo==='storymaker')?'selected':''}>Storymaker</option><option value="corporativo" ${r.tipo==='corporativo'?'selected':''}>Corporativo</option><option value="social" ${r.tipo==='social'?'selected':''}>Social media</option></select></div>
+      <div class="fg"><label class="fl">Status</label><select class="inp" id="mr-s"><option value="pendente" ${(!r.status||r.status==='pendente')?'selected':''}>Pendente</option><option value="pago" ${r.status==='pago'?'selected':''}>Pago</option><option value="atrasado" ${r.status==='atrasado'?'selected':''}>Atrasado</option></select></div>
+    </div>
+    <div class="fr4">
+      <div class="fg"><label class="fl">Total (R$)</label><input class="inp" type="number" id="mr-v" value="${r.valor||''}"></div>
+      <div class="fg"><label class="fl">Entrada (R$)</label><input class="inp" type="number" id="mr-e" value="${r.entrada||0}"></div>
+      <div class="fg"><label class="fl">Forma pgto</label><select class="inp" id="mr-pg"><option value="pix" ${(!r.pgto||r.pgto==='pix')?'selected':''}>PIX</option><option value="dinheiro" ${r.pgto==='dinheiro'?'selected':''}>Dinheiro</option><option value="cartao" ${r.pgto==='cartao'?'selected':''}>Cartão</option><option value="transferencia">TED/DOC</option></select></div>
+      <div class="fg"><label class="fl">Parcelas</label><select class="inp" id="mr-par">${[1,2,3,4,5,6,10,12].map(n=>`<option value="${n}" ${Number(r.parcelas||1)===n?'selected':''}>${n===1?'À vista':n+'x'}</option>`).join('')}</select></div>
+    </div>
+    <div class="fr3">
+      <div class="fg"><label class="fl">Data do evento</label><input class="inp" type="date" id="mr-evento" value="${r.evento||''}"></div>
+      <div class="fg"><label class="fl">Venc. último pagamento</label><input class="inp" type="date" id="mr-d" value="${r.venc||''}"></div>
+      <div class="fg"><label class="fl">Data contratação</label><input class="inp" type="date" id="mr-ct" value="${r.contratado||''}"></div>
+    </div>
+    ${r.status==='pago'||document.getElementById('mr-s')?.value==='pago'?`<div class="fg"><label class="fl">Data do pagamento</label><input class="inp" type="date" id="mr-dtpg" value="${r.dt_pagamento||today}"></div>`:`<div class="fg" id="fg-dtpg" style="display:none"><label class="fl">Data do pagamento</label><input class="inp" type="date" id="mr-dtpg" value="${r.dt_pagamento||today}"></div>`}
+    <div class="fg"><label class="fl">Comprovante / obs. pgto</label><input class="inp" id="mr-cp" value="${r.comp||''}" placeholder="pix confirmado, parcela 2/3..."></div>
+    <div class="fg"><label class="fl">Observações</label><textarea class="inp" id="mr-o">${r.obs||''}</textarea></div>`;
+  // mostrar/ocultar data de pgto conforme status
+  setTimeout(()=>{
+    const sel=document.getElementById('mr-s');
+    const fg=document.getElementById('fg-dtpg');
+    if(sel&&fg) sel.addEventListener('change',()=>{fg.style.display=sel.value==='pago'?'block':'none';});
+  },50);
+  document.getElementById('m-foot').innerHTML=`<button class="btn" onclick="closeMo()">Cancelar</button><button class="btn primary" onclick="saveR(${id||0})">Salvar</button>`;
+  document.getElementById('mo').classList.add('open');
+}
+function saveR(id){
+  const v=parseFloat(document.getElementById('mr-v').value)||0;const e=parseFloat(document.getElementById('mr-e').value)||0;
+  const st=document.getElementById('mr-s').value;
+  const dtpg=document.getElementById('mr-dtpg')?.value||'';
+  const existente=id?DB.receber.find(x=>x.id===id):{};
+  // registra data de pagamento automaticamente ao marcar como pago
+  const dtPagamentoFinal = st==='pago' ? (dtpg||today) : (existente.dt_pagamento||'');
+  const obj={
+    cliente:document.getElementById('mr-c').value,
+    tipo:document.getElementById('mr-t').value,
+    status:st,valor:v,entrada:e,falta:Math.max(0,v-e),
+    evento:document.getElementById('mr-evento').value,
+    venc:document.getElementById('mr-d').value,
+    contratado:document.getElementById('mr-ct').value,
+    pgto:document.getElementById('mr-pg').value,
+    parcelas:parseInt(document.getElementById('mr-par').value)||1,
+    comp:document.getElementById('mr-cp').value,
+    obs:document.getElementById('mr-o').value,
+    dt_pagamento:dtPagamentoFinal,
+  };
+  if(id){const i=DB.receber.findIndex(x=>x.id===id);DB.receber[i]={...DB.receber[i],...obj};log(`Editado: ${obj.cliente}`,'edit');}
+  else{DB.receber.push({id:nR++,...obj});log(`Novo contrato: ${obj.cliente} · ${fmt(v)}`,'add');}
+  save();closeMo();render();
+}
+
+function mPagar(mes,id){
+  const m=mes||pagarMesSel;
+  const p=id?(pagarMes(m).find(x=>x.id===id)||{}):{};
+  document.getElementById('m-title').textContent=id?`Editar despesa — ${mLabel(m)}`:`Nova despesa — ${mLabel(m)}`;
+  document.getElementById('m-body').innerHTML=`
+    <div class="fg"><label class="fl">Descrição</label><input class="inp" id="mp-d" value="${p.desc||''}"></div>
+    <div class="fr3">
+      <div class="fg"><label class="fl">Valor (R$)</label><input class="inp" type="number" id="mp-v" value="${p.valor||''}"></div>
+      <div class="fg"><label class="fl">Dia vencimento</label><input class="inp" id="mp-dia" value="${p.dia||''}" placeholder="Ex: 10"></div>
+      <div class="fg"><label class="fl">Categoria</label><select class="inp" id="mp-c"><option value="fixo" ${p.cat==='fixo'?'selected':''}>Fixo obrigatório</option><option value="operacional" ${p.cat==='operacional'?'selected':''}>Operacional</option><option value="marketing" ${p.cat==='marketing'?'selected':''}>Marketing</option><option value="prolabore" ${p.cat==='prolabore'?'selected':''}>Pró-labore</option><option value="pessoal" ${p.cat==='pessoal'?'selected':''}>Pessoal no CNPJ</option></select></div>
+    </div>
+    <div class="fg"><label class="fl">Observação</label><textarea class="inp" id="mp-o">${p.obs||''}</textarea></div>`;
+  document.getElementById('m-foot').innerHTML=`<button class="btn" onclick="closeMo()">Cancelar</button><button class="btn primary" onclick="saveP('${m}',${id||0})">Salvar</button>`;
+  document.getElementById('mo').classList.add('open');
+}
+function saveP(m,id){
+  if(!DB.pagar[m])DB.pagar[m]=[];
+  const obj={desc:document.getElementById('mp-d').value,valor:parseFloat(document.getElementById('mp-v').value)||0,dia:document.getElementById('mp-dia').value,cat:document.getElementById('mp-c').value,obs:document.getElementById('mp-o').value,pago:id?(pagarMes(m).find(x=>x.id===id)?.pago||false):false};
+  if(id){const i=DB.pagar[m].findIndex(x=>x.id===id);if(i>=0)DB.pagar[m][i]={...DB.pagar[m][i],...obj};log(`Despesa editada: ${obj.desc}`,'edit');}
+  else{DB.pagar[m].push({id:nP++,...obj});log(`Nova despesa: ${obj.desc} · ${fmt(obj.valor)}`,'add');}
+  save();closeMo();render();
+}
+
+function mConc(id){
+  const c=id?DB.conc.find(x=>x.id===id):{};
+  document.getElementById('m-title').textContent=id?'Editar lançamento':'Lançar manual';
+  document.getElementById('m-body').innerHTML=`
+    <div class="fr2"><div class="fg"><label class="fl">Data</label><input class="inp" type="date" id="mc-d" value="${c.data||today}"></div><div class="fg"><label class="fl">Banco</label><select class="inp" id="mc-b"><option value="nubank" ${(!c.banco||c.banco==='nubank')?'selected':''}>Nubank PJ</option><option value="c6" ${c.banco==='c6'?'selected':''}>C6 Bank</option></select></div></div>
+    <div class="fg"><label class="fl">Descrição</label><input class="inp" id="mc-desc" value="${c.desc||''}"></div>
+    <div class="fr3">
+      <div class="fg"><label class="fl">Valor</label><input class="inp" type="number" id="mc-v" value="${c.valor||''}"></div>
+      <div class="fg"><label class="fl">Tipo</label><select class="inp" id="mc-t"><option value="credito" ${(!c.tipo||c.tipo==='credito')?'selected':''}>Crédito</option><option value="debito" ${c.tipo==='debito'?'selected':''}>Débito</option></select></div>
+      <div class="fg"><label class="fl">Categoria</label><select class="inp" id="mc-c">${['storymaker','corporativo','operacional','marketing','fixo','pessoal','prolabore'].map(ct=>`<option value="${ct}" ${c.cat===ct?'selected':''}>${ct}</option>`).join('')}</select></div>
+    </div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Conciliado?</label><select class="inp" id="mc-ok"><option value="1" ${c.ok?'selected':''}>Sim</option><option value="0" ${!c.ok?'selected':''}>Não</option></select></div>
+      <div class="fg"><label class="fl">Inconsistência?</label><select class="inp" id="mc-inc"><option value="0" ${!c.inc?'selected':''}>Não</option><option value="1" ${c.inc?'selected':''}>Sim</option></select></div>
+    </div>
+    <div class="fg"><label class="fl">Observação</label><textarea class="inp" id="mc-o">${c.obs||''}</textarea></div>`;
+  document.getElementById('m-foot').innerHTML=`<button class="btn" onclick="closeMo()">Cancelar</button><button class="btn primary" onclick="saveC(${id||0})">Salvar</button>`;
+  document.getElementById('mo').classList.add('open');
+}
+function saveC(id){
+  const obj={data:document.getElementById('mc-d').value,banco:document.getElementById('mc-b').value,desc:document.getElementById('mc-desc').value,valor:parseFloat(document.getElementById('mc-v').value)||0,tipo:document.getElementById('mc-t').value,cat:document.getElementById('mc-c').value,ok:document.getElementById('mc-ok').value==='1',inc:document.getElementById('mc-inc').value==='1',obs:document.getElementById('mc-o').value};
+  if(id){const i=DB.conc.findIndex(x=>x.id===id);DB.conc[i]={...DB.conc[i],...obj};log(`Conciliação editada: ${obj.desc}`,'edit');}
+  else{DB.conc.push({id:nC++,...obj});log(`Lançamento: ${fmt(obj.valor)} · ${obj.desc}`,'add');}
+  save();closeMo();rConc();
+}
+
+function mPlano(){
+  document.getElementById('m-title').textContent='Nova conta';
+  document.getElementById('m-body').innerHTML=`<div class="fr2"><div class="fg"><label class="fl">Código</label><input class="inp" id="pl-cod" placeholder="Ex: 1.6"></div><div class="fg"><label class="fl">Grupo</label><select class="inp" id="pl-g"><option value="receita">Receita</option><option value="despesa_op">Custo operacional</option><option value="despesa_fix">Despesa fixa</option><option value="prolabore">Pró-labore</option><option value="alerta_pf">Alerta PF</option></select></div></div><div class="fg"><label class="fl">Nome</label><input class="inp" id="pl-n"></div>`;
+  document.getElementById('m-foot').innerHTML=`<button class="btn" onclick="closeMo()">Cancelar</button><button class="btn primary" onclick="savePl()">Salvar</button>`;
+  document.getElementById('mo').classList.add('open');
+}
+function savePl(){DB.plano.push({id:nPl++,cod:document.getElementById('pl-cod').value,nome:document.getElementById('pl-n').value,grupo:document.getElementById('pl-g').value});save();closeMo();render();}
+function delPl(id){DB.plano=DB.plano.filter(x=>x.id!==id);save();render();}
+
+function closeMoEv(e){if(e.target===document.getElementById('mo'))closeMo();}
+function closeMo(){document.getElementById('mo').classList.remove('open');}
+
+load();
+</script>
+</body>
+</html>
