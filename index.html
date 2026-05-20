@@ -586,6 +586,9 @@ function rConc(){
       <div class="kpi slate"><div class="kl">Inconsistências</div><div class="kv" style="color:${inc>0?'var(--rust)':'var(--sage)'}">${inc}</div><div class="ks">${pend} não conciliados</div></div>
     </div>`;
   if(inc>0) html+=`<div class="al d">⚠ ${inc} inconsistências · ${fmt(tPessoal)} em despesas pessoais no CNPJ</div>`;
+  const semRec=DB.receber.length===0;const semPag=allPagarFlat().length===0;
+  if(DB.conc.length>0&&semRec&&semPag) html+=`<div class="al" style="background:rgba(212,168,67,.08);border:1px solid var(--gold-dim);border-radius:var(--r);padding:10px 14px;margin-bottom:10px;font-size:11px;color:var(--gold)">⚡ <strong>Sem registros para conciliar:</strong> importe o extrato e cadastre as <strong>Contas a Receber</strong> e <strong>Contas a Pagar</strong> — a conciliação cruzará automaticamente os valores do banco com seus registros.</div>`;
+  if(DB.conc.length>0&&pend>0&&(!semRec||!semPag)) html+=`<div class="al s">✓ ${DB.conc.length-pend} conciliados automaticamente · ${pend} aguardando revisão manual</div>`;
   const grp={};DB.conc.forEach(c=>{const m=mKey(c.data)||'sem';(grp[m]=grp[m]||[]).push(c);});
   Object.keys(grp).sort().reverse().forEach(m=>{
     const its=grp[m].sort((a,b)=>b.data.localeCompare(a.data));
@@ -633,22 +636,42 @@ function parseCSVLine(l){const r=[];let cur='',inQ=false;for(let i=0;i<l.length;
 function handleFile(f){
   if(!f)return;const r=new FileReader();
   r.onload=e=>{
-    const lines=e.target.result.split('\n').filter(l=>l.trim()&&l.includes(','));
-    let added=0,incs=0;
+    const lines=e.target.result.split('\n').filter(l=>l.trim());
+    let added=0,incs=0,matched=0;
+    const parseDate=d=>{const m=d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);return m?`${m[3]}-${m[2]}-${m[1]}`:d;};
+    const allPag=allPagarFlat();
     lines.forEach(line=>{
-      const c=parseCSVLine(line);if(c.length<3)return;
-      const [data,desc,...rest]=c;const val=parseFloat(rest.find(x=>!isNaN(parseFloat(x.replace(',','.'))))||0);
-      if(!data||!desc||!val)return;
-      const dl=desc.toLowerCase();let cat='operacional',inc=false;
-      if(dl.includes('gmac')||dl.includes('consórcio'))cat='fixo';
-      else if(dl.includes('renner')||dl.includes('salão')||dl.includes('cinema')||dl.includes('beleza')||dl.includes('supermercado')){cat='pessoal';inc=true;incs++;}
-      else if(dl.includes('ads')||dl.includes('facebook'))cat='marketing';
-      else if(dl.includes('english')||dl.includes('inglês')||dl.includes('midway')){cat='pessoal';inc=true;incs++;}
-      const isDb=val<0||rest.some(x=>x.toLowerCase().includes('deb'));
-      DB.conc.push({id:nC++,data:data||today,desc,valor:Math.abs(val),tipo:isDb?'debito':'credito',banco:'importado',cat,ok:!inc,inc,obs:inc?'Detectado como inconsistência':''});added++;
+      const c=parseCSVLine(line);if(c.length<2)return;
+      if(c[0].toLowerCase()==='data'||c[1].toLowerCase()==='valor')return;
+      let data,desc,val;
+      if(c.length>=4&&c[2]&&c[2].length>20&&c[2].includes('-')){
+        data=parseDate(c[0]);val=parseFloat(c[1].replace(',','.'));desc=c.slice(3).join(' ').trim();
+      }else{
+        data=parseDate(c[0]);desc=c[1];
+        val=parseFloat(c.slice(2).map(x=>x.replace(',','.')).find(x=>!isNaN(parseFloat(x)))||'0');
+      }
+      if(!data||!desc||isNaN(val)||val===0)return;
+      const isDb=val<0;const abs=Math.abs(val);const dl=desc.toLowerCase();
+      let cat='operacional',inc=false,obs='',ok=false;
+      if(!isDb){
+        const rec=DB.receber.find(x=>x.status!=='pago'&&Math.abs(Number(x.falta||x.valor)-abs)<0.05);
+        if(rec){cat='storymaker';ok=true;obs=`Conciliado: ${rec.cliente}`;matched++;}
+      }else{
+        const pag=allPag.find(p=>Math.abs(Number(p.valor)-abs)<0.05);
+        if(pag){cat=pag.cat||'operacional';ok=true;obs=`Conciliado: ${pag.desc}`;matched++;}
+      }
+      if(!ok){
+        if(dl.includes('gmac')||dl.includes('consórcio')||dl.includes('consor'))cat='fixo';
+        else if(dl.includes('ads')||dl.includes('facebook')||dl.includes('instagram')||dl.includes('trafego'))cat='marketing';
+        else if(dl.includes('prolabore')||dl.includes('pró-labore'))cat='prolabore';
+        else if(dl.includes('renner')||dl.includes('salão')||dl.includes('cinema')||dl.includes('beleza')||dl.includes('supermercado')||dl.includes('midway')||dl.includes('english')||dl.includes('inglês')){cat='pessoal';inc=true;incs++;obs='Despesa pessoal no CNPJ';}
+      }
+      DB.conc.push({id:nC++,data,desc,valor:abs,tipo:isDb?'debito':'credito',banco:'nubank',cat,ok,inc,obs});added++;
     });
-    log(`Extrato importado: ${added} lançamentos · ${incs} inconsistências`,'add');save();alert(`✅ ${added} importados · ⚠ ${incs} inconsistências`);rConc();
-  };r.readAsText(f);
+    log(`Extrato importado: ${added} lançamentos · ${matched} conciliados · ${incs} inconsistências`,'add');
+    save();alert(`✅ ${added} lançamentos importados\n✓ ${matched} conciliados automaticamente\n⚠ ${incs} inconsistências`);rConc();
+  };r.readAsText(f,'UTF-8');
+}
 }
 function catConc(id,cat){const c=DB.conc.find(x=>x.id===id);if(c){c.cat=cat;save();rConc();}}
 function toggleConc(id){const c=DB.conc.find(x=>x.id===id);if(!c)return;c.ok=!c.ok;log(`Conciliação: ${c.desc}→${c.ok?'ok':'pendente'}`,'status');save();rConc();}
