@@ -351,6 +351,7 @@ let openMonths=new Set(['2026-05','2026-09']);
 let filtMes='todos',filtTipo='todos';
 let pagarMesSel='2026-05';
 let concSel=null;
+let concShowDone=false;
 
 async function load(){
   try{const r=await S.get('glprime_v5');if(r?.value){const d=JSON.parse(r.value);DB=d.DB;nR=d.nR;nP=d.nP;nC=d.nC;nPl=d.nPl;}}catch(e){}
@@ -579,121 +580,100 @@ function rConc(){
     <button class="btn" onclick="autoConciliar()">⚡ Auto-conciliar</button>
     <button class="btn primary" onclick="rodarIA()">✦ Analisar com IA</button>
     <button class="btn" onclick="mConc()">+ Manual</button>
-    <button class="btn" style="border-color:var(--rust-dim);color:var(--rust);margin-left:auto" onclick="limparConc()">🗑 Limpar conciliação</button>`;
+    <button class="btn" style="border-color:var(--rust-dim);color:var(--rust);margin-left:auto" onclick="limparConc()">🗑 Limpar</button>`;
 
-  const bankItems=[...DB.conc].sort((a,b)=>b.data.localeCompare(a.data));
+  // ─── Monta items ──────────────────────────────────────────────────────────────
+  const allBank=[...DB.conc].sort((a,b)=>b.data.localeCompare(a.data));
+  const pendBank=allBank.filter(x=>!x.ok);
+  const doneBank=allBank.filter(x=>x.ok);
 
-  // Build system items from receber + pagar
-  const sysItems=[];
-  DB.receber.forEach(r=>sysItems.push({sid:'r'+r.id,tipo:'credito',valor:Number(r.falta||r.valor),desc:r.cliente+(r.evento?` — ${r.evento}`:''),data:r.venc||today,concId:r.concId||null,status:r.status}));
-  allPagarFlat().forEach(p=>sysItems.push({sid:'p'+p.id,tipo:'debito',valor:Number(p.valor),desc:p.desc,data:`${p.mes}-${String(p.dia||1).padStart(2,'0')}`,concId:p.concId||null,pago:p.pago}));
-  sysItems.sort((a,b)=>b.data.localeCompare(a.data));
+  const allSys=[];
+  DB.receber.forEach(r=>allSys.push({sid:'r'+r.id,tipo:'credito',valor:Number(r.falta||r.valor),desc:r.cliente+(r.evento?` — ${r.evento}`:''),data:r.venc||today,concId:r.concId||null,status:r.status}));
+  allPagarFlat().forEach(p=>allSys.push({sid:'p'+p.id,tipo:'debito',valor:Number(p.valor),desc:p.desc,data:`${p.mes}-${String(p.dia||1).padStart(2,'0')}`,concId:p.concId||null,pago:p.pago}));
+  allSys.sort((a,b)=>b.data.localeCompare(a.data));
+  const pendSys=allSys.filter(x=>!x.concId);
 
-  const tCr=bankItems.filter(x=>x.tipo==='credito').reduce((s,x)=>s+x.valor,0);
-  const tDb=bankItems.filter(x=>x.tipo==='debito').reduce((s,x)=>s+x.valor,0);
-  const tSysRec=sysItems.filter(x=>x.tipo==='credito').reduce((s,x)=>s+x.valor,0);
-  const tSysPag=sysItems.filter(x=>x.tipo==='debito').reduce((s,x)=>s+x.valor,0);
-  const bankConc=bankItems.filter(x=>x.ok).length;
-  const sysConc=sysItems.filter(x=>x.concId).length;
-  const inc=bankItems.filter(x=>x.inc).length;
-  const diff=(tCr-tDb)-(tSysRec-tSysPag);
+  // ─── KPIs ─────────────────────────────────────────────────────────────────────
+  const tCr=allBank.filter(x=>x.tipo==='credito').reduce((s,x)=>s+x.valor,0);
+  const tDb=allBank.filter(x=>x.tipo==='debito').reduce((s,x)=>s+x.valor,0);
+  const inc=allBank.filter(x=>x.inc).length;
+  const nConc=doneBank.length;
+  const nPend=pendBank.length;
 
+  // ─── Barra de seleção ─────────────────────────────────────────────────────────
   let selBar='';
   if(concSel){
-    const lbl=concSel.src==='bank'?'extrato bancário':'sistema';
+    const lbl=concSel.src==='bank'?'extrato':'sistema';
     selBar=`<div class="al ai" style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-      <span>◉ Item do <strong>${lbl}</strong> selecionado — clique no item correspondente do outro lado para conciliar</span>
-      <button class="btn ghost sm" onclick="concSel=null;rConc()" style="flex-shrink:0;margin-left:auto">Cancelar</button>
+      <span>◉ Item do <strong>${lbl}</strong> selecionado — clique no correspondente do outro lado</span>
+      <button class="btn ghost sm" onclick="concSel=null;rConc()" style="margin-left:auto">✕ Cancelar</button>
     </div>`;
   }
 
   let html=`${selBar}
-  <div class="g4" style="margin-bottom:12px">
-    <div class="kpi green"><div class="kl">Entradas extrato</div><div class="kv" style="color:var(--sage)">${fmt(tCr)}</div></div>
-    <div class="kpi red"><div class="kl">Saídas extrato</div><div class="kv" style="color:var(--rust)">${fmt(tDb)}</div></div>
-    <div class="kpi slate"><div class="kl">Conciliados</div><div class="kv">${bankConc}/${bankItems.length}</div><div class="ks">${inc>0?`${inc} inconsist.`:'sem alertas'}</div></div>
-    <div class="kpi ${Math.abs(diff)<0.01?'green':'red'}"><div class="kl">Diferença</div><div class="kv" style="color:${Math.abs(diff)<0.01?'var(--sage)':'var(--rust)'}">${fmt(diff)}</div><div class="ks">extrato vs sistema</div></div>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">`;
+  <div class="g4" style="margin-bottom:14px">
+    <div class="kpi green"><div class="kl">Entradas</div><div class="kv" style="color:var(--sage)">${fmt(tCr)}</div></div>
+    <div class="kpi red"><div class="kl">Saídas</div><div class="kv" style="color:var(--rust)">${fmt(tDb)}</div></div>
+    <div class="kpi ${nPend===0&&allBank.length>0?'green':'slate'}"><div class="kl">Pendentes</div><div class="kv" style="color:${nPend>0?'var(--gold)':'var(--sage)'}">${nPend}</div><div class="ks">${inc>0?`${inc} inconsist.`:nPend===0&&allBank.length>0?'tudo conciliado!':'a conciliar'}</div></div>
+    <div class="kpi green"><div class="kl">Conciliados</div><div class="kv" style="color:var(--sage)">${nConc}</div><div class="ks">de ${allBank.length} lançamentos</div></div>
+  </div>`;
 
-  // ─── PAINEL ESQUERDO: EXTRATO BANCÁRIO ──────────────────────────────────────
-  html+=`<div class="card">
-    <div class="ch"><span class="ct">Extrato bancário</span><span style="font-size:11px;color:var(--text3)">${bankItems.length} lançamentos</span></div>
-    <div style="padding:0">`;
-
-  if(!bankItems.length){
-    html+=`<div style="padding:32px 20px;text-align:center;color:var(--text3);font-size:12px">
-      <div style="font-size:28px;margin-bottom:8px">📄</div>
-      <div style="font-weight:600;margin-bottom:6px">Nenhum extrato importado</div>
-      <div style="margin-bottom:12px">Arraste o CSV do Nubank ou use o botão acima</div>
-      <button class="btn primary" onclick="document.getElementById('finp').click()">⬆ Importar extrato CSV</button>
+  // ─── ÁREA PRINCIPAL: APENAS PENDENTES ────────────────────────────────────────
+  if(nPend===0&&allBank.length>0){
+    html+=`<div class="al s" style="text-align:center;padding:18px">✅ Todos os lançamentos do extrato foram conciliados! Veja o histórico abaixo.</div>`;
+  } else if(!allBank.length){
+    html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="card"><div style="padding:32px 20px;text-align:center;color:var(--text3);font-size:12px">
+        <div style="font-size:28px;margin-bottom:8px">📄</div><div style="font-weight:600;margin-bottom:6px">Nenhum extrato importado</div>
+        <button class="btn primary" style="margin-top:8px" onclick="document.getElementById('finp').click()">⬆ Importar CSV Nubank</button>
+      </div></div>
+      <div class="card"><div style="padding:32px 20px;text-align:center;color:var(--text3);font-size:12px">
+        <div style="font-size:28px;margin-bottom:8px">📋</div><div style="font-weight:600;margin-bottom:6px">Registros do sistema</div>
+        <div>${pendSys.length} item(ns) aguardando conciliação</div>
+      </div></div>
     </div>`;
   } else {
-    bankItems.forEach(item=>{
+    // ── Helper: linha de item extrato ──────────────────────────────────────────
+    const selBankItem=concSel?.src==='bank'?DB.conc.find(x=>x.id===concSel.id):null;
+
+    const rowBank=(item)=>{
       const isSel=concSel?.src==='bank'&&concSel?.id===item.id;
-      const bg=isSel?'background:var(--plum-bg);outline:2px solid var(--plum);outline-offset:-2px;'
-               :item.ok?'background:rgba(119,166,122,.07);':'';
-      const circleColor=isSel?'var(--plum)':item.ok?'var(--sage)':'var(--bg4)';
-      html+=`<div onclick="selectConc('bank',${item.id})" style="${bg}display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--bg3);cursor:pointer">
-        <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${circleColor};display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;color:${circleColor}">${item.ok?'✓':isSel?'◉':''}</div>
+      const bg=isSel?'background:var(--plum-bg);outline:2px solid var(--plum);outline-offset:-2px;':'';
+      const cc=isSel?'var(--plum)':'var(--bg4)';
+      return `<div onclick="selectConc('bank',${item.id})" style="${bg}display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--bg3);cursor:pointer">
+        <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${cc};display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;color:${cc}">${isSel?'◉':''}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${item.desc}">${item.desc}</div>
-          <div style="font-size:10px;color:var(--text3);display:flex;gap:5px;flex-wrap:wrap">
+          <div style="font-size:10px;color:var(--text3);display:flex;gap:4px;flex-wrap:wrap">
             <span>${fmtD(item.data)}</span><span>·</span><span>${item.cat}</span>
-            ${item.obs?`<span>·</span><span style="color:var(--sage)">${item.obs}</span>`:''}
             ${item.inc?`<span style="color:var(--rust)">· ⚠ pessoal</span>`:''}
           </div>
         </div>
         <div style="font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;color:${item.tipo==='credito'?'var(--sage)':'var(--rust)'};white-space:nowrap;flex-shrink:0">${item.tipo==='credito'?'+':'-'}${fmt(item.valor)}</div>
-        <button class="btn ghost sm" onclick="event.stopPropagation();delC(${item.id})" style="padding:2px 5px;flex-shrink:0;opacity:.4">✕</button>
+        <button class="btn ghost sm" onclick="event.stopPropagation();delC(${item.id})" style="padding:2px 5px;opacity:.4">✕</button>
       </div>`;
-    });
-  }
-  html+=`</div></div>`;
+    };
 
-  // ─── PAINEL DIREITO: REGISTROS DO SISTEMA ────────────────────────────────────
-  html+=`<div class="card">
-    <div class="ch"><span class="ct">Registros do sistema</span><span style="font-size:11px;color:var(--text3)">${sysConc}/${sysItems.length} conciliados</span></div>
-    <div style="padding:0">`;
-
-  if(!sysItems.length){
-    html+=`<div style="padding:32px 20px;text-align:center;color:var(--text3);font-size:12px">
-      <div style="font-size:28px;margin-bottom:8px">📋</div>
-      <div style="font-weight:600;margin-bottom:6px">Nenhum registro lançado</div>
-      <div>Cadastre contas a receber e a pagar primeiro,<br>depois importe o extrato para cruzar.</div>
-    </div>`;
-  } else {
-    // Quando há item do extrato selecionado, calcula compatibilidade de cada registro do sistema
-    let selBankItem=null;
-    if(concSel?.src==='bank') selBankItem=DB.conc.find(x=>x.id===concSel.id);
-
-    sysItems.forEach(item=>{
+    const rowSys=(item)=>{
       const isSel=concSel?.src==='sys'&&concSel?.id===item.sid;
-      const isConc=!!item.concId;
-
-      // Compatibilidade quando extrato está selecionado
-      let compat='normal'; // 'normal' | 'match' | 'wrong-type' | 'diff-value'
-      if(selBankItem&&!isConc&&!isSel){
+      let compat='normal';
+      if(selBankItem&&!isSel){
         if(selBankItem.tipo!==item.tipo) compat='wrong-type';
         else if(Math.abs(selBankItem.valor-item.valor)<=0.05) compat='match';
         else compat='diff-value';
       }
-
       const bg=isSel?'background:var(--plum-bg);outline:2px solid var(--plum);outline-offset:-2px;'
                :compat==='match'?'background:rgba(119,166,122,.14);outline:1px solid var(--sage);outline-offset:-1px;'
-               :compat==='wrong-type'?'opacity:.3;pointer-events:none;'
-               :isConc?'background:rgba(119,166,122,.07);':'';
-      const circleColor=isSel?'var(--plum)':compat==='match'?'var(--sage)':isConc?'var(--sage)':'var(--bg4)';
-      const statusLabel=item.tipo==='credito'
-        ?(item.status==='pago'?'recebido':'a receber')
-        :(item.pago?'pago':'a pagar');
+               :compat==='wrong-type'?'opacity:.25;pointer-events:none;':'';
+      const cc=isSel?'var(--plum)':compat==='match'?'var(--sage)':'var(--bg4)';
+      const statusLabel=item.tipo==='credito'?(item.status==='pago'?'recebido':'a receber'):(item.pago?'pago':'a pagar');
       const matchTag=compat==='match'?`<span style="color:var(--sage);font-weight:700">← valor bate</span>`
                     :compat==='diff-value'?`<span style="color:var(--gold)">dif. ${fmt(Math.abs(selBankItem.valor-item.valor))}</span>`:'';
-      html+=`<div onclick="selectConc('sys','${item.sid}')" style="${bg}display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--bg3);cursor:pointer">
-        <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${circleColor};display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;color:${circleColor}">${isConc?'✓':isSel?'◉':''}</div>
+      return `<div onclick="selectConc('sys','${item.sid}')" style="${bg}display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--bg3);cursor:pointer">
+        <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${cc};display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;color:${cc}">${isSel?'◉':''}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${item.desc}">${item.desc}</div>
-          <div style="font-size:10px;color:var(--text3);display:flex;gap:5px;flex-wrap:wrap">
+          <div style="font-size:10px;color:var(--text3);display:flex;gap:4px;flex-wrap:wrap">
             <span>${fmtD(item.data)}</span><span>·</span>
             <span style="color:${item.tipo==='credito'?'var(--sage)':'var(--rust)'}">${statusLabel}</span>
             ${matchTag?`<span>·</span>${matchTag}`:''}
@@ -701,9 +681,63 @@ function rConc(){
         </div>
         <div style="font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;color:${item.tipo==='credito'?'var(--sage)':'var(--rust)'};white-space:nowrap;flex-shrink:0">${item.tipo==='credito'?'+':'-'}${fmt(item.valor)}</div>
       </div>`;
-    });
+    };
+
+    html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div class="card">
+        <div class="ch"><span class="ct">Extrato — pendentes</span><span style="font-size:11px;color:var(--text3)">${pendBank.length}</span></div>
+        <div style="padding:0">`;
+    if(!pendBank.length){
+      html+=`<div style="padding:20px;text-align:center;color:var(--sage);font-size:12px">✅ Nenhum item pendente no extrato</div>`;
+    } else {
+      pendBank.forEach(item=>{html+=rowBank(item);});
+    }
+    html+=`</div></div>
+      <div class="card">
+        <div class="ch"><span class="ct">Sistema — pendentes</span><span style="font-size:11px;color:var(--text3)">${pendSys.length}</span></div>
+        <div style="padding:0">`;
+    if(!pendSys.length){
+      html+=`<div style="padding:20px;text-align:center;color:var(--sage);font-size:12px">✅ Todos os registros conciliados</div>`;
+    } else {
+      pendSys.forEach(item=>{html+=rowSys(item);});
+    }
+    html+=`</div></div></div>`;
   }
-  html+=`</div></div></div>`;
+
+  // ─── SEÇÃO CONCILIADOS (recolhível) ──────────────────────────────────────────
+  if(doneBank.length>0){
+    html+=`<div class="card" style="margin-top:4px">
+      <div class="ch" onclick="concShowDone=!concShowDone;rConc()" style="cursor:pointer;user-select:none">
+        <span class="ct">✓ Conciliados (${doneBank.length})</span>
+        <span style="font-size:11px;color:var(--text3)">${concShowDone?'▲ recolher':'▼ expandir'} · clique para ${concShowDone?'ocultar':'ver'}</span>
+      </div>`;
+    if(concShowDone){
+      html+=`<div style="padding:0">`;
+      doneBank.forEach(bank=>{
+        const linked=allSys.find(s=>s.concId===bank.id);
+        const sysLabel=linked?linked.desc:'(sem vínculo no sistema)';
+        const sysVal=linked?`${linked.tipo==='credito'?'+':'-'}${fmt(linked.valor)}`:'';
+        html+=`<div style="display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--bg3)">
+          <div style="width:18px;height:18px;border-radius:50%;background:var(--sage);display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;flex-shrink:0">✓</div>
+          <div style="flex:1;min-width:0;display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center">
+            <div style="min-width:0">
+              <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${bank.desc}">${bank.desc}</div>
+              <div style="font-size:10px;color:var(--text3)">${fmtD(bank.data)} · extrato</div>
+            </div>
+            <div style="font-size:14px;color:var(--text3)">↔</div>
+            <div style="min-width:0">
+              <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${sysLabel}">${sysLabel}</div>
+              <div style="font-size:10px;color:var(--text3)">${linked?fmtD(linked.data)+' · sistema':''}</div>
+            </div>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${bank.tipo==='credito'?'var(--sage)':'var(--rust)'};white-space:nowrap;flex-shrink:0">${bank.tipo==='credito'?'+':'-'}${fmt(bank.valor)}</div>
+          <button class="btn ghost sm" onclick="desfazerConc(${bank.id})" style="flex-shrink:0;color:var(--rust);border-color:var(--rust-dim)" title="Desfazer esta conciliação">↩ Desfazer</button>
+        </div>`;
+      });
+      html+=`</div>`;
+    }
+    html+=`</div>`;
+  }
 
   document.getElementById('content').innerHTML=html;
 }
@@ -755,6 +789,14 @@ function selectConc(src,id){
   }
   log(`Conciliação: ${bank.desc} ↔ ${fmt(bank.valor)}`,'add');
   save();concSel=null;rConc();
+}
+function desfazerConc(bankId){
+  const bank=DB.conc.find(x=>x.id===bankId);
+  if(!bank)return;
+  bank.ok=false;bank.obs='';
+  DB.receber.forEach(r=>{if(r.concId===bankId)delete r.concId;});
+  Object.keys(DB.pagar).forEach(m=>DB.pagar[m].forEach(p=>{if(p.concId===bankId)delete p.concId;}));
+  log(`Conciliação desfeita: ${bank.desc}`,'edit');save();rConc();
 }
 function limparConc(){
   if(!confirm(`Limpar toda a conciliação?\n\nIsso apaga o extrato importado e desvincula os registros.\nAs contas a receber e a pagar NÃO serão apagadas.`))return;
