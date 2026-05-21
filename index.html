@@ -350,6 +350,7 @@ let pg='dashboard';
 let openMonths=new Set(['2026-05','2026-09']);
 let filtMes='todos',filtTipo='todos';
 let pagarMesSel='2026-05';
+let concSel=null;
 
 async function load(){
   try{const r=await S.get('glprime_v5');if(r?.value){const d=JSON.parse(r.value);DB=d.DB;nR=d.nR;nP=d.nP;nC=d.nC;nPl=d.nPl;}}catch(e){}
@@ -572,47 +573,153 @@ function delP(m,id){
 
 // ─── CONCILIAÇÃO ─────────────────────────────────────────────────────────────
 function rConc(){
-  document.getElementById('tba').innerHTML=`<button class="btn" onclick="mConc()">+ Lançar manual</button><button class="btn primary" onclick="rodarIA()">✦ Analisar com IA</button>`;
-  const pend=DB.conc.filter(x=>!x.ok).length;const inc=DB.conc.filter(x=>x.inc).length;
-  const totCr=DB.conc.filter(x=>x.tipo==='credito').reduce((s,x)=>s+Number(x.valor),0);
-  const totDb=DB.conc.filter(x=>x.tipo==='debito').reduce((s,x)=>s+Number(x.valor),0);
-  const tPessoal=DB.conc.filter(x=>x.cat==='pessoal').reduce((s,x)=>s+Number(x.valor),0);
-  let html=`
-    <div class="al ai">✦ <strong>IA ativa</strong> — Clique em "Analisar com IA" para análise completa dos lançamentos com o Claude. Ou arraste um extrato CSV/OFX para importar.</div>
-    <div class="conc-drop" ondragover="evDrag(event)" ondrop="dropFile(event)" onclick="document.getElementById('finp').click()">
-      <input type="file" id="finp" style="display:none" accept=".csv,.txt,.ofx" onchange="handleFile(this.files[0])">
-      <div style="font-size:24px;margin-bottom:6px">📄</div>
-      <div style="font-weight:600;font-size:13px;margin-bottom:3px">Arraste o extrato CSV/TXT ou clique</div>
-      <div style="font-size:11px;color:var(--text3)">Nubank · C6 Bank · A IA categoriza e sinaliza inconsistências</div>
-    </div>
-    <div class="g4" style="margin-bottom:14px">
-      <div class="kpi green"><div class="kl">Entradas</div><div class="kv" style="color:var(--sage)">${fmt(totCr)}</div></div>
-      <div class="kpi red"><div class="kl">Saídas</div><div class="kv" style="color:var(--rust)">${fmt(totDb)}</div></div>
-      <div class="kpi gold"><div class="kl">Resultado</div><div class="kv" style="color:${totCr-totDb>=0?'var(--sage)':'var(--rust)'}">${fmt(totCr-totDb)}</div></div>
-      <div class="kpi slate"><div class="kl">Inconsistências</div><div class="kv" style="color:${inc>0?'var(--rust)':'var(--sage)'}">${inc}</div><div class="ks">${pend} não conciliados</div></div>
+  document.getElementById('tba').innerHTML=`
+    <input type="file" id="finp" style="display:none" accept=".csv,.txt,.ofx" onchange="handleFile(this.files[0])">
+    <button class="btn" onclick="document.getElementById('finp').click()">⬆ Importar extrato</button>
+    <button class="btn" onclick="autoConciliar()">⚡ Auto-conciliar</button>
+    <button class="btn primary" onclick="rodarIA()">✦ Analisar com IA</button>
+    <button class="btn" onclick="mConc()">+ Manual</button>`;
+
+  const bankItems=[...DB.conc].sort((a,b)=>b.data.localeCompare(a.data));
+
+  // Build system items from receber + pagar
+  const sysItems=[];
+  DB.receber.forEach(r=>sysItems.push({sid:'r'+r.id,tipo:'credito',valor:Number(r.falta||r.valor),desc:r.cliente+(r.evento?` — ${r.evento}`:''),data:r.venc||today,concId:r.concId||null,status:r.status}));
+  allPagarFlat().forEach(p=>sysItems.push({sid:'p'+p.id,tipo:'debito',valor:Number(p.valor),desc:p.desc,data:`${p.mes}-${String(p.dia||1).padStart(2,'0')}`,concId:p.concId||null,pago:p.pago}));
+  sysItems.sort((a,b)=>b.data.localeCompare(a.data));
+
+  const tCr=bankItems.filter(x=>x.tipo==='credito').reduce((s,x)=>s+x.valor,0);
+  const tDb=bankItems.filter(x=>x.tipo==='debito').reduce((s,x)=>s+x.valor,0);
+  const tSysRec=sysItems.filter(x=>x.tipo==='credito').reduce((s,x)=>s+x.valor,0);
+  const tSysPag=sysItems.filter(x=>x.tipo==='debito').reduce((s,x)=>s+x.valor,0);
+  const bankConc=bankItems.filter(x=>x.ok).length;
+  const sysConc=sysItems.filter(x=>x.concId).length;
+  const inc=bankItems.filter(x=>x.inc).length;
+  const diff=(tCr-tDb)-(tSysRec-tSysPag);
+
+  let selBar='';
+  if(concSel){
+    const lbl=concSel.src==='bank'?'extrato bancário':'sistema';
+    selBar=`<div class="al ai" style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <span>◉ Item do <strong>${lbl}</strong> selecionado — clique no item correspondente do outro lado para conciliar</span>
+      <button class="btn ghost sm" onclick="concSel=null;rConc()" style="flex-shrink:0;margin-left:auto">Cancelar</button>
     </div>`;
-  if(inc>0) html+=`<div class="al d">⚠ ${inc} inconsistências · ${fmt(tPessoal)} em despesas pessoais no CNPJ</div>`;
-  const grp={};DB.conc.forEach(c=>{const m=mKey(c.data)||'sem';(grp[m]=grp[m]||[]).push(c);});
-  Object.keys(grp).sort().reverse().forEach(m=>{
-    const its=grp[m].sort((a,b)=>b.data.localeCompare(a.data));
-    html+=`<div style="margin-bottom:14px"><div class="mhd"><span class="mhd-t">${m==='sem'?'Sem data':mLabel(m)}</span><span class="mhd-m">${its.length} lançamentos · ${its.filter(x=>x.inc).length} inconsist.</span></div>
-    <div class="card" style="margin-bottom:0"><table>
-      <thead><tr><th>Data</th><th>Descrição</th><th>Cat.</th><th>Valor</th><th>Conc.</th><th>Flag</th><th>Obs</th><th></th></tr></thead>
-      <tbody>${its.map(c=>`<tr style="${c.inc?'background:rgba(192,81,58,.04)':''}">
-        <td style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;white-space:nowrap">${fmtD(c.data)}</td>
-        <td style="font-weight:500;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.desc}">${c.desc}</td>
-        <td><select style="border:none;background:transparent;font-size:11px;color:var(--text3);cursor:pointer;font-family:'Sora',sans-serif" onchange="catConc(${c.id},this.value)">
-          ${['storymaker','corporativo','operacional','marketing','fixo','pessoal','prolabore'].map(ct=>`<option value="${ct}" ${c.cat===ct?'selected':''}>${ct}</option>`).join('')}
-        </select></td>
-        <td style="font-weight:700;color:${c.tipo==='credito'?'var(--sage)':'var(--rust)'};font-family:'JetBrains Mono',monospace;white-space:nowrap">${c.tipo==='credito'?'+':'-'}${fmt(c.valor)}</td>
-        <td><div class="conc-check ${c.ok?'ok':''}" onclick="toggleConc(${c.id})">${c.ok?'✓':''}</div></td>
-        <td>${c.inc?`<span class="bx b-atrasado">⚠ inc</span>`:`<span class="bx b-pago">ok</span>`}</td>
-        <td style="font-size:10px;color:var(--text3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.obs||''}">${c.obs||'—'}</td>
-        <td><button class="btn ghost sm" onclick="mConc(${c.id})">✎</button><button class="btn ghost sm" onclick="delC(${c.id})">✕</button></td>
-      </tr>`).join('')}</tbody>
-    </table></div></div>`;
-  });
+  }
+
+  let html=`${selBar}
+  <div class="g4" style="margin-bottom:12px">
+    <div class="kpi green"><div class="kl">Entradas extrato</div><div class="kv" style="color:var(--sage)">${fmt(tCr)}</div></div>
+    <div class="kpi red"><div class="kl">Saídas extrato</div><div class="kv" style="color:var(--rust)">${fmt(tDb)}</div></div>
+    <div class="kpi slate"><div class="kl">Conciliados</div><div class="kv">${bankConc}/${bankItems.length}</div><div class="ks">${inc>0?`${inc} inconsist.`:'sem alertas'}</div></div>
+    <div class="kpi ${Math.abs(diff)<0.01?'green':'red'}"><div class="kl">Diferença</div><div class="kv" style="color:${Math.abs(diff)<0.01?'var(--sage)':'var(--rust)'}">${fmt(diff)}</div><div class="ks">extrato vs sistema</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">`;
+
+  // ─── PAINEL ESQUERDO: EXTRATO BANCÁRIO ──────────────────────────────────────
+  html+=`<div class="card">
+    <div class="ch"><span class="ct">Extrato bancário</span><span style="font-size:11px;color:var(--text3)">${bankItems.length} lançamentos</span></div>
+    <div style="padding:0">`;
+
+  if(!bankItems.length){
+    html+=`<div style="padding:32px 20px;text-align:center;color:var(--text3);font-size:12px">
+      <div style="font-size:28px;margin-bottom:8px">📄</div>
+      <div style="font-weight:600;margin-bottom:6px">Nenhum extrato importado</div>
+      <div style="margin-bottom:12px">Arraste o CSV do Nubank ou use o botão acima</div>
+      <button class="btn primary" onclick="document.getElementById('finp').click()">⬆ Importar extrato CSV</button>
+    </div>`;
+  } else {
+    bankItems.forEach(item=>{
+      const isSel=concSel?.src==='bank'&&concSel?.id===item.id;
+      const bg=isSel?'background:var(--plum-bg);outline:2px solid var(--plum);outline-offset:-2px;'
+               :item.ok?'background:rgba(119,166,122,.07);':'';
+      const circleColor=isSel?'var(--plum)':item.ok?'var(--sage)':'var(--bg4)';
+      html+=`<div onclick="selectConc('bank',${item.id})" style="${bg}display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--bg3);cursor:pointer">
+        <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${circleColor};display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;color:${circleColor}">${item.ok?'✓':isSel?'◉':''}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${item.desc}">${item.desc}</div>
+          <div style="font-size:10px;color:var(--text3);display:flex;gap:5px;flex-wrap:wrap">
+            <span>${fmtD(item.data)}</span><span>·</span><span>${item.cat}</span>
+            ${item.obs?`<span>·</span><span style="color:var(--sage)">${item.obs}</span>`:''}
+            ${item.inc?`<span style="color:var(--rust)">· ⚠ pessoal</span>`:''}
+          </div>
+        </div>
+        <div style="font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;color:${item.tipo==='credito'?'var(--sage)':'var(--rust)'};white-space:nowrap;flex-shrink:0">${item.tipo==='credito'?'+':'-'}${fmt(item.valor)}</div>
+        <button class="btn ghost sm" onclick="event.stopPropagation();delC(${item.id})" style="padding:2px 5px;flex-shrink:0;opacity:.4">✕</button>
+      </div>`;
+    });
+  }
+  html+=`</div></div>`;
+
+  // ─── PAINEL DIREITO: REGISTROS DO SISTEMA ────────────────────────────────────
+  html+=`<div class="card">
+    <div class="ch"><span class="ct">Registros do sistema</span><span style="font-size:11px;color:var(--text3)">${sysConc}/${sysItems.length} conciliados</span></div>
+    <div style="padding:0">`;
+
+  if(!sysItems.length){
+    html+=`<div style="padding:32px 20px;text-align:center;color:var(--text3);font-size:12px">
+      <div style="font-size:28px;margin-bottom:8px">📋</div>
+      <div style="font-weight:600;margin-bottom:6px">Nenhum registro lançado</div>
+      <div>Cadastre contas a receber e a pagar primeiro,<br>depois importe o extrato para cruzar.</div>
+    </div>`;
+  } else {
+    sysItems.forEach(item=>{
+      const isSel=concSel?.src==='sys'&&concSel?.id===item.sid;
+      const isConc=!!item.concId;
+      const bg=isSel?'background:var(--plum-bg);outline:2px solid var(--plum);outline-offset:-2px;'
+               :isConc?'background:rgba(119,166,122,.07);':'';
+      const circleColor=isSel?'var(--plum)':isConc?'var(--sage)':'var(--bg4)';
+      const statusLabel=item.tipo==='credito'
+        ?(item.status==='pago'?'recebido':'a receber')
+        :(item.pago?'pago':'a pagar');
+      html+=`<div onclick="selectConc('sys','${item.sid}')" style="${bg}display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--bg3);cursor:pointer">
+        <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${circleColor};display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;color:${circleColor}">${isConc?'✓':isSel?'◉':''}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${item.desc}">${item.desc}</div>
+          <div style="font-size:10px;color:var(--text3);display:flex;gap:5px">
+            <span>${fmtD(item.data)}</span><span>·</span>
+            <span style="color:${item.tipo==='credito'?'var(--sage)':'var(--rust)'}">${statusLabel}</span>
+          </div>
+        </div>
+        <div style="font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;color:${item.tipo==='credito'?'var(--sage)':'var(--rust)'};white-space:nowrap;flex-shrink:0">${item.tipo==='credito'?'+':'-'}${fmt(item.valor)}</div>
+      </div>`;
+    });
+  }
+  html+=`</div></div></div>`;
+
   document.getElementById('content').innerHTML=html;
+}
+function selectConc(src,id){
+  if(!concSel){concSel={src,id};rConc();return;}
+  if(concSel.src===src){concSel={src,id};rConc();return;}
+  const bankId=src==='bank'?id:concSel.id;
+  const sysId=src==='sys'?id:concSel.id;
+  const bank=DB.conc.find(x=>x.id===bankId);
+  if(!bank){concSel=null;rConc();return;}
+  bank.ok=true;
+  const sidStr=String(sysId);
+  if(sidStr.startsWith('r')){
+    const r=DB.receber.find(x=>x.id===parseInt(sidStr.slice(1)));
+    if(r){r.concId=bankId;bank.obs=`Conciliado: ${r.cliente}`;}
+  } else if(sidStr.startsWith('p')){
+    const pid=parseInt(sidStr.slice(1));
+    Object.keys(DB.pagar).forEach(m=>DB.pagar[m].forEach(p=>{if(p.id===pid){p.concId=bankId;bank.obs=`Conciliado: ${p.desc}`;}}));
+  }
+  log(`Conciliação: ${bank.desc}`,'add');save();concSel=null;rConc();
+}
+function autoConciliar(){
+  let matched=0;
+  DB.conc.forEach(bank=>{
+    if(bank.ok)return;
+    if(bank.tipo==='credito'){
+      const r=DB.receber.find(x=>x.status!=='pago'&&!x.concId&&Math.abs(Number(x.falta||x.valor)-bank.valor)<0.05);
+      if(r){bank.ok=true;bank.obs=`Auto: ${r.cliente}`;r.concId=bank.id;matched++;}
+    } else {
+      let found=false;
+      Object.keys(DB.pagar).forEach(m=>{if(found)return;DB.pagar[m].forEach(p=>{if(found||p.concId)return;if(Math.abs(Number(p.valor)-bank.valor)<0.05){bank.ok=true;bank.obs=`Auto: ${p.desc}`;p.concId=bank.id;matched++;found=true;}});});
+    }
+  });
+  save();log(`Auto-conciliação: ${matched} itens`,'add');
+  alert(`${matched} item(ns) conciliado(s) automaticamente por valor.`);rConc();
 }
 async function rodarIA(){
   let key=localStorage.getItem('gl_ai_key');
@@ -640,9 +747,8 @@ function handleFile(f){
   if(!f)return;const r=new FileReader();
   r.onload=e=>{
     const lines=e.target.result.split('\n').filter(l=>l.trim());
-    let added=0,incs=0,matched=0;
+    let added=0,incs=0;
     const parseDate=d=>{const m=d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);return m?`${m[3]}-${m[2]}-${m[1]}`:d;};
-    const allPag=allPagarFlat();
     lines.forEach(line=>{
       const c=parseCSVLine(line);if(c.length<2)return;
       if(c[0].toLowerCase()==='data'||c[1].toLowerCase()==='valor')return;
@@ -655,18 +761,15 @@ function handleFile(f){
       }
       if(!data||!desc||isNaN(val)||val===0)return;
       const isDb=val<0;const abs=Math.abs(val);const dl=desc.toLowerCase();
-      let cat='operacional',inc=false,obs='',ok=false;
-      if(!isDb){const rec=DB.receber.find(x=>x.status!=='pago'&&Math.abs(Number(x.falta||x.valor)-abs)<0.05);if(rec){cat='storymaker';ok=true;obs=`Conciliado: ${rec.cliente}`;matched++;}}
-      else{const pag=allPag.find(p=>Math.abs(Number(p.valor)-abs)<0.05);if(pag){cat=pag.cat||'operacional';ok=true;obs=`Conciliado: ${pag.desc}`;matched++;}}
-      if(!ok){
-        if(dl.includes('gmac')||dl.includes('consórcio'))cat='fixo';
-        else if(dl.includes('ads')||dl.includes('facebook')||dl.includes('instagram'))cat='marketing';
-        else if(dl.includes('prolabore'))cat='prolabore';
-        else if(dl.includes('renner')||dl.includes('salão')||dl.includes('cinema')||dl.includes('beleza')||dl.includes('supermercado')||dl.includes('midway')||dl.includes('english')){cat='pessoal';inc=true;incs++;obs='Despesa pessoal no CNPJ';}
-      }
-      DB.conc.push({id:nC++,data,desc,valor:abs,tipo:isDb?'debito':'credito',banco:'nubank',cat,ok,inc,obs});added++;
+      let cat='operacional',inc=false,obs='';
+      if(dl.includes('gmac')||dl.includes('consórcio'))cat='fixo';
+      else if(dl.includes('ads')||dl.includes('facebook')||dl.includes('instagram'))cat='marketing';
+      else if(dl.includes('prolabore'))cat='prolabore';
+      else if(dl.includes('renner')||dl.includes('salão')||dl.includes('cinema')||dl.includes('beleza')||dl.includes('supermercado')||dl.includes('midway')||dl.includes('english')){cat='pessoal';inc=true;incs++;obs='Despesa pessoal no CNPJ';}
+      DB.conc.push({id:nC++,data,desc,valor:abs,tipo:isDb?'debito':'credito',banco:'nubank',cat,ok:false,inc,obs});added++;
     });
-    log(`Extrato importado: ${added} lancamentos`,'add');save();alert(`Importados: ${added}\nConciliados: ${matched}\nInconsistencias: ${incs}`);rConc();
+    log(`Extrato importado: ${added} lancamentos`,'add');save();
+    alert(`${added} lançamentos importados.\n${incs} despesas pessoais detectadas.\n\nUse "⚡ Auto-conciliar" para cruzar com os registros do sistema,\nou clique manualmente nos dois lados para conciliar.`);rConc();
   };r.readAsText(f,'UTF-8');
 }
 function catConc(id,cat){const c=DB.conc.find(x=>x.id===id);if(c){c.cat=cat;save();rConc();}}
