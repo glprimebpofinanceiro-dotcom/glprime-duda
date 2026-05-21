@@ -465,35 +465,120 @@ function rReceber(){
   const grp={};DB.receber.forEach(r=>{const m=mKey(r.venc)||'sem-data';(grp[m]=grp[m]||[]).push(r);});
   let html='';
   Object.keys(grp).sort().forEach(m=>{
-    const its=grp[m];const tot=its.reduce((s,x)=>s+Number(x.valor),0);const rec=its.filter(x=>x.status==='pago').reduce((s,x)=>s+Number(x.valor),0);
-    html+=`<div style="margin-bottom:14px"><div class="mhd"><span class="mhd-t">${m==='sem-data'?'Sem data':mLabel(m)}</span><span class="mhd-m">${fmt(tot)} · <span style="color:var(--sage)">${fmt(rec)} recebido</span></span></div>
-    <div class="card" style="margin-bottom:0"><table><thead><tr><th>Cliente</th><th>Tipo</th><th>Pgto</th><th>Total</th><th>Entrada</th><th>Falta</th><th>Evento</th><th>Venc. pgto</th><th>Dt. pagamento</th><th>Status</th><th></th></tr></thead><tbody>
-    ${its.map(r=>`<tr>
-      <td><div style="font-weight:600">${r.cliente}</div>${r.obs?`<div style="font-size:10px;color:var(--text3)">${r.obs}</div>`:''}</td>
-      <td><span class="bx b-${r.tipo}">${r.tipo}</span></td>
-      <td style="font-size:11px;color:var(--text3)">${r.pgto||'pix'}${r.parcelas>1?` ${r.parcelas}x`:''}</td>
-      <td style="font-family:'JetBrains Mono',monospace;font-weight:600">${fmt(r.valor)}</td>
-      <td style="font-family:'JetBrains Mono',monospace;color:var(--sage)">${r.entrada>0?fmt(r.entrada):'—'}</td>
-      <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${r.falta>0?'var(--rust)':'var(--sage)'}">${r.falta>0?fmt(r.falta):'✓'}</td>
-      <td style="font-size:11px;color:var(--text2);white-space:nowrap;font-weight:500">${r.evento?fmtD(r.evento):'—'}</td>
-      <td style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;white-space:nowrap">${fmtD(r.venc)}</td>
-      <td style="font-size:11px;white-space:nowrap;font-family:'JetBrains Mono',monospace;color:${r.dt_pagamento?'var(--sage)':'var(--text4)'}">${r.dt_pagamento?fmtD(r.dt_pagamento):'—'}</td>
-      <td><span class="bx b-${r.status}" style="cursor:pointer" onclick="toggleR(${r.id})">${r.status}</span></td>
-      <td><button class="btn ghost sm" onclick="mReceber(${r.id})">✎</button><button class="btn ghost sm" onclick="delR(${r.id})">✕</button></td>
-    </tr>`).join('')}</tbody></table></div></div>`;
+    const its=grp[m];
+    const tot=its.reduce((s,x)=>s+Number(x.valor),0);
+    const rec=its.filter(x=>x.status==='pago').reduce((s,x)=>s+Number(x.valor),0);
+    html+=`<div style="margin-bottom:18px"><div class="mhd"><span class="mhd-t">${m==='sem-data'?'Sem data':mLabel(m)}</span><span class="mhd-m">${fmt(tot)} · <span style="color:var(--sage)">${fmt(rec)} recebido</span></span></div>
+    <div style="display:flex;flex-direction:column;gap:8px">`;
+    its.forEach(r=>{
+      const isParc=Array.isArray(r.parcelasDatas)&&r.parcelasDatas.length>0;
+      const isRec=r.recorrente;
+      const nPgParc=isParc?r.parcelasDatas.filter(x=>x.pago).length:0;
+      const falta=Number(r.falta||0);
+      html+=`<div class="card" style="margin-bottom:0">
+        <div style="padding:12px 14px;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+          <div style="flex:1;min-width:200px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:3px">${r.cliente}
+              ${isRec?`<span style="font-size:9px;background:rgba(119,166,122,.15);color:var(--sage);border-radius:4px;padding:1px 5px;margin-left:4px">🔄 recorrente</span>`:''}
+              ${isParc?`<span style="font-size:9px;background:var(--plum-bg);color:var(--plum);border-radius:4px;padding:1px 5px;margin-left:4px">📋 ${nPgParc}/${r.parcelasDatas.length} pagas</span>`:''}
+            </div>
+            <div style="font-size:11px;color:var(--text3);display:flex;gap:8px;flex-wrap:wrap">
+              <span class="bx b-${r.tipo}" style="margin:0">${r.tipo}</span>
+              <span>${r.pgto||'pix'}${r.parcelas>1&&!isParc?` ${r.parcelas}×`:''}</span>
+              ${r.evento?`<span>Evento: ${fmtD(r.evento)}</span>`:''}
+              ${r.obs?`<span style="color:var(--text3)">${r.obs}</span>`:''}
+            </div>
+          </div>
+          <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+            <div style="text-align:right">
+              <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px">${fmt(r.valor)}</div>
+              <div style="font-size:10px;color:var(--text3)">total contrato</div>
+            </div>
+            ${r.entrada>0?`<div style="text-align:right"><div style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:13px;color:var(--sage)">${fmt(r.entrada)}</div><div style="font-size:10px;color:var(--text3)">entrada</div></div>`:''}
+            <div style="text-align:right">
+              <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;color:${falta>0?'var(--rust)':'var(--sage)'}">${falta>0?fmt(falta):'✓ quitado'}</div>
+              <div style="font-size:10px;color:var(--text3)">${falta>0?'a receber':'recebido'}</div>
+            </div>
+            <div style="text-align:right;min-width:80px">
+              <div style="font-size:11px;color:var(--text3)">Venc. ${fmtD(r.venc)||'—'}</div>
+              ${r.dt_pagamento?`<div style="font-size:11px;color:var(--sage)">Pago ${fmtD(r.dt_pagamento)}</div>`:''}
+              ${r.comp?`<a href="${r.comp.startsWith('http')?r.comp:'#'}" target="_blank" style="font-size:10px;color:var(--plum)">📎 comprov.</a>`:''}
+            </div>
+            <div style="display:flex;gap:5px;align-items:center">
+              ${r.status!=='pago'&&!isParc?`<button class="btn sm" style="background:var(--sage);color:#fff;border:none;font-size:10px;padding:3px 10px" onclick="mBaixaR(${r.id})">↓ Receber</button>`:''}
+              ${r.status==='pago'&&!isParc?`<span class="bx b-pago">✓ pago</span>`:''}
+              <button class="btn ghost sm" onclick="mReceber(${r.id})">✎</button>
+              <button class="btn ghost sm" onclick="delR(${r.id})">✕</button>
+            </div>
+          </div>
+        </div>
+        ${isParc?`<div style="padding:0 14px 12px;display:grid;gap:4px">
+          ${r.parcelasDatas.map((pc,i)=>`
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:${pc.pago?'rgba(119,166,122,.08)':'var(--bg3)'}">
+              <span style="font-size:10px;color:var(--text3);min-width:52px">Parc. ${pc.n||i+1}</span>
+              <span style="font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${pc.pago?'var(--sage)':'var(--rust)'}">${fmt(pc.valor)}</span>
+              <span style="font-size:10px;color:var(--text3);flex:1">${pc.venc?fmtD(pc.venc):'sem data'}</span>
+              ${pc.pago
+                ?`<span style="font-size:10px;color:var(--sage)">✓ recebido ${pc.dataPagto?fmtD(pc.dataPagto):''}</span>${pc.comp?`<a href="${pc.comp}" target="_blank" style="font-size:10px;color:var(--plum)">📎</a>`:''}`
+                :`<button class="btn sm" style="font-size:10px;padding:2px 8px" onclick="mBaixaR(${r.id},${i})">Receber</button>`}
+            </div>`).join('')}
+        </div>`:''}
+      </div>`;
+    });
+    html+=`</div></div>`;
   });
-  const tG=DB.receber.reduce((s,x)=>s+Number(x.valor),0);const fG=DB.receber.filter(x=>x.status!=='pago').reduce((s,x)=>s+Number(x.falta||x.valor),0);
+  const tG=DB.receber.reduce((s,x)=>s+Number(x.valor),0);
+  const fG=DB.receber.filter(x=>x.status!=='pago').reduce((s,x)=>s+Number(x.falta||x.valor),0);
   html+=`<div style="display:flex;justify-content:space-between;padding:10px 2px;font-size:12px;border-top:1px solid var(--line);font-weight:700"><span>Total geral</span><span>${fmt(tG)} contratado · <span style="color:var(--rust)">${fmt(fG)} a receber</span></span></div>`;
   document.getElementById('content').innerHTML=html;
 }
 function toggleR(id){
   const r=DB.receber.find(x=>x.id===id);if(!r)return;
-  const p=r.status;
   r.status=r.status==='pago'?'pendente':'pago';
   if(r.status==='pago'){r.entrada=r.valor;r.falta=0;r.dt_pagamento=today;}
   else{r.dt_pagamento='';}
-  log(`Status: ${r.cliente} · ${p}→${r.status}${r.status==='pago'?' · pago em '+fmtD(today):''}` ,'status');
-  save();render();
+  log(`Status: ${r.cliente} → ${r.status}`,'status');save();render();
+}
+function mBaixaR(id,parcelaIdx){
+  const r=DB.receber.find(x=>x.id===id);if(!r)return;
+  const isParc=parcelaIdx!==undefined&&parcelaIdx!==null;
+  const item=isParc?r.parcelasDatas[parcelaIdx]:r;
+  const valorPendente=isParc?item.valor:Number(r.falta||r.valor);
+  document.getElementById('m-title').textContent=isParc?`Receber parcela ${parcelaIdx+1} — ${r.cliente}`:`Receber — ${r.cliente}`;
+  document.getElementById('m-body').innerHTML=`
+    <div class="al s" style="margin-bottom:12px">Valor a receber: <strong>${fmt(valorPendente)}</strong>${isParc?` · Parc. ${parcelaIdx+1}/${r.parcelasDatas.length}`:''}</div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Data do recebimento</label><input class="inp" type="date" id="mbr-data" value="${today}"></div>
+      <div class="fg"><label class="fl">Valor recebido (R$)</label><input class="inp" type="number" id="mbr-valor" value="${valorPendente}"></div>
+    </div>
+    <div class="fg"><label class="fl">Comprovante (link ou nome do arquivo)</label><input class="inp" id="mbr-comp" placeholder="Ex: pix-confirmado.jpg ou drive.google.com/..." value="${item.comp||''}"></div>
+    <div class="fg"><label class="fl">Observação</label><input class="inp" id="mbr-obs" placeholder="Opcional"></div>`;
+  document.getElementById('m-foot').innerHTML=`<button class="btn" onclick="closeMo()">Cancelar</button><button class="btn primary" onclick="saveBaixaR(${id},${isParc?parcelaIdx:'null'})">✓ Confirmar recebimento</button>`;
+  document.getElementById('mo').classList.add('open');
+}
+function saveBaixaR(id,parcelaIdx){
+  const r=DB.receber.find(x=>x.id===id);if(!r)return;
+  const data=document.getElementById('mbr-data').value;
+  const valor=parseFloat(document.getElementById('mbr-valor').value)||0;
+  const comp=document.getElementById('mbr-comp').value;
+  const obs=document.getElementById('mbr-obs').value;
+  if(parcelaIdx!==null&&parcelaIdx!==undefined){
+    const pc=r.parcelasDatas[parcelaIdx];
+    pc.pago=true;pc.dataPagto=data;pc.comp=comp;if(obs)pc.obs=obs;
+    // Abate no falta
+    r.falta=Math.max(0,(r.falta||r.valor)-pc.valor);
+    r.entrada=(r.valor-r.falta);
+    if(r.parcelasDatas.every(x=>x.pago)){r.status='pago';r.falta=0;r.dt_pagamento=data;}
+    log(`Parcela ${parcelaIdx+1} recebida: ${r.cliente}`,'add');
+  } else {
+    r.pago=true;r.status='pago';r.dt_pagamento=data;r.comp=comp;
+    r.falta=Math.max(0,(r.falta||r.valor)-valor);
+    r.entrada=(r.valor-r.falta);
+    if(r.falta<=0.05){r.falta=0;r.entrada=r.valor;}
+    if(obs)r.obs=(r.obs?r.obs+' · ':'')+obs;
+    log(`Recebimento: ${r.cliente} · ${fmt(valor)} · ${data}`,'add');
+  }
+  save();closeMo();render();
 }
 function delR(id){const r=DB.receber.find(x=>x.id===id);if(r&&confirm(`Remover ${r.cliente}?`)){DB.receber=DB.receber.filter(x=>x.id!==id);log(`Removido: ${r.cliente}`,'del');save();render();}}
 
@@ -1570,58 +1655,99 @@ function importarDados(){
 }
 
 // ─── MODAIS ───────────────────────────────────────────────────────────────────
+function mReceberParcelasHtml(np,parcelasDatas){
+  let h='';
+  for(let i=0;i<np;i++){const pc=parcelasDatas?.[i]||{};h+=`<div style="display:grid;grid-template-columns:60px 1fr 1fr;gap:6px;align-items:center;margin-bottom:5px"><span style="font-size:11px;color:var(--text3)">Parc. ${i+1}</span><input class="inp" type="number" id="mr-pv${i}" value="${pc.valor||''}" placeholder="R$"><input class="inp" type="date" id="mr-pvenc${i}" value="${pc.venc||''}"></div>`;}
+  return h;
+}
+function mReceberCampos(mod,r){
+  r=r||{};
+  const pg=`<select class="inp" id="mr-pg"><option value="pix" ${(!r.pgto||r.pgto==='pix')?'selected':''}>PIX</option><option value="dinheiro" ${r.pgto==='dinheiro'?'selected':''}>Dinheiro</option><option value="cartao" ${r.pgto==='cartao'?'selected':''}>Cartão</option><option value="transferencia" ${r.pgto==='transferencia'?'selected':''}>TED/DOC</option></select>`;
+  if(mod==='parcelado'){
+    const np=r.parcelasDatas?.length||2;
+    return `<div class="fr2"><div class="fg"><label class="fl">Nº de parcelas</label><input class="inp" type="number" id="mr-np" min="2" max="36" value="${np}" oninput="document.getElementById('mr-parc').innerHTML=mReceberParcelasHtml(+this.value,null)"></div><div class="fg"><label class="fl">Forma pgto</label>${pg}</div></div><div id="mr-parc">${mReceberParcelasHtml(np,r.parcelasDatas)}</div>`;
+  }
+  if(mod==='recorrente'){
+    return `<div class="fr2"><div class="fg"><label class="fl">Valor mensal (R$)</label><input class="inp" type="number" id="mr-v" value="${r.valor||''}"></div><div class="fg"><label class="fl">Dia do mês</label><input class="inp" type="number" id="mr-dia" min="1" max="31" value="${r.dia||''}" placeholder="Ex: 5"></div></div><div class="fr2"><div class="fg"><label class="fl">Forma pgto</label>${pg}</div><div class="fg"><label class="fl">Próx. vencimento</label><input class="inp" type="date" id="mr-d" value="${r.venc||''}"></div></div>`;
+  }
+  return `<div class="fr4"><div class="fg"><label class="fl">Total (R$)</label><input class="inp" type="number" id="mr-v" value="${r.valor||''}"></div><div class="fg"><label class="fl">Entrada (R$)</label><input class="inp" type="number" id="mr-e" value="${r.entrada||0}"></div><div class="fg"><label class="fl">Forma pgto</label>${pg}</div><div class="fg"><label class="fl">Parcelas</label><select class="inp" id="mr-par">${[1,2,3,4,5,6,10,12].map(n=>`<option value="${n}" ${Number(r.parcelas||1)===n?'selected':''}>${n===1?'À vista':n+'x'}</option>`).join('')}</select></div></div><div class="fr2"><div class="fg"><label class="fl">Venc. último pagamento</label><input class="inp" type="date" id="mr-d" value="${r.venc||''}"></div></div>`;
+}
 function mReceber(id){
   const r=id?DB.receber.find(x=>x.id===id):{};
+  const mod=r.modalidade||(r.recorrente?'recorrente':(Array.isArray(r.parcelasDatas)&&r.parcelasDatas.length>0?'parcelado':'simples'));
   document.getElementById('m-title').textContent=id?'Editar contrato':'Novo contrato';
   document.getElementById('m-body').innerHTML=`
     <div class="fg"><label class="fl">Cliente</label><input class="inp" id="mr-c" value="${r.cliente||''}"></div>
     <div class="fr2">
-      <div class="fg"><label class="fl">Tipo</label><select class="inp" id="mr-t"><option value="storymaker" ${(!r.tipo||r.tipo==='storymaker')?'selected':''}>Storymaker</option><option value="corporativo" ${r.tipo==='corporativo'?'selected':''}>Corporativo</option><option value="social" ${r.tipo==='social'?'selected':''}>Social media</option></select></div>
+      <div class="fg"><label class="fl">Tipo de contrato</label><select class="inp" id="mr-t"><option value="storymaker" ${(!r.tipo||r.tipo==='storymaker')?'selected':''}>Storymaker</option><option value="corporativo" ${r.tipo==='corporativo'?'selected':''}>Corporativo</option><option value="social" ${r.tipo==='social'?'selected':''}>Social media</option></select></div>
+      <div class="fg"><label class="fl">Modalidade de cobrança</label><select class="inp" id="mr-mod" onchange="document.getElementById('mr-campos').innerHTML=mReceberCampos(this.value,{})"><option value="simples" ${mod==='simples'?'selected':''}>Simples (à vista / entrada+saldo)</option><option value="parcelado" ${mod==='parcelado'?'selected':''}>📋 Parcelado (datas individuais)</option><option value="recorrente" ${mod==='recorrente'?'selected':''}>🔄 Recorrente (mensal)</option></select></div>
+    </div>
+    <div class="fr2">
       <div class="fg"><label class="fl">Status</label><select class="inp" id="mr-s"><option value="pendente" ${(!r.status||r.status==='pendente')?'selected':''}>Pendente</option><option value="pago" ${r.status==='pago'?'selected':''}>Pago</option><option value="atrasado" ${r.status==='atrasado'?'selected':''}>Atrasado</option></select></div>
-    </div>
-    <div class="fr4">
-      <div class="fg"><label class="fl">Total (R$)</label><input class="inp" type="number" id="mr-v" value="${r.valor||''}"></div>
-      <div class="fg"><label class="fl">Entrada (R$)</label><input class="inp" type="number" id="mr-e" value="${r.entrada||0}"></div>
-      <div class="fg"><label class="fl">Forma pgto</label><select class="inp" id="mr-pg"><option value="pix" ${(!r.pgto||r.pgto==='pix')?'selected':''}>PIX</option><option value="dinheiro" ${r.pgto==='dinheiro'?'selected':''}>Dinheiro</option><option value="cartao" ${r.pgto==='cartao'?'selected':''}>Cartão</option><option value="transferencia">TED/DOC</option></select></div>
-      <div class="fg"><label class="fl">Parcelas</label><select class="inp" id="mr-par">${[1,2,3,4,5,6,10,12].map(n=>`<option value="${n}" ${Number(r.parcelas||1)===n?'selected':''}>${n===1?'À vista':n+'x'}</option>`).join('')}</select></div>
-    </div>
-    <div class="fr3">
       <div class="fg"><label class="fl">Data do evento</label><input class="inp" type="date" id="mr-evento" value="${r.evento||''}"></div>
-      <div class="fg"><label class="fl">Venc. último pagamento</label><input class="inp" type="date" id="mr-d" value="${r.venc||''}"></div>
-      <div class="fg"><label class="fl">Data contratação</label><input class="inp" type="date" id="mr-ct" value="${r.contratado||''}"></div>
     </div>
-    ${r.status==='pago'||document.getElementById('mr-s')?.value==='pago'?`<div class="fg"><label class="fl">Data do pagamento</label><input class="inp" type="date" id="mr-dtpg" value="${r.dt_pagamento||today}"></div>`:`<div class="fg" id="fg-dtpg" style="display:none"><label class="fl">Data do pagamento</label><input class="inp" type="date" id="mr-dtpg" value="${r.dt_pagamento||today}"></div>`}
-    <div class="fg"><label class="fl">Comprovante / obs. pgto</label><input class="inp" id="mr-cp" value="${r.comp||''}" placeholder="pix confirmado, parcela 2/3..."></div>
+    <div id="mr-campos">${mReceberCampos(mod,r)}</div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Data contratação</label><input class="inp" type="date" id="mr-ct" value="${r.contratado||''}"></div>
+      <div class="fg" id="fg-dtpg" style="display:${r.status==='pago'?'block':'none'}"><label class="fl">Data do pagamento</label><input class="inp" type="date" id="mr-dtpg" value="${r.dt_pagamento||today}"></div>
+    </div>
+    <div class="fg"><label class="fl">Comprovante / obs. pgto</label><input class="inp" id="mr-cp" value="${r.comp||''}" placeholder="pix confirmado, link drive..."></div>
     <div class="fg"><label class="fl">Observações</label><textarea class="inp" id="mr-o">${r.obs||''}</textarea></div>`;
-  // mostrar/ocultar data de pgto conforme status
   setTimeout(()=>{
     const sel=document.getElementById('mr-s');
     const fg=document.getElementById('fg-dtpg');
-    if(sel&&fg) sel.addEventListener('change',()=>{fg.style.display=sel.value==='pago'?'block':'none';});
+    if(sel&&fg)sel.addEventListener('change',()=>{fg.style.display=sel.value==='pago'?'block':'none';});
   },50);
   document.getElementById('m-foot').innerHTML=`<button class="btn" onclick="closeMo()">Cancelar</button><button class="btn primary" onclick="saveR(${id||0})">Salvar</button>`;
   document.getElementById('mo').classList.add('open');
 }
 function saveR(id){
-  const v=parseFloat(document.getElementById('mr-v').value)||0;const e=parseFloat(document.getElementById('mr-e').value)||0;
+  const mod=document.getElementById('mr-mod').value;
   const st=document.getElementById('mr-s').value;
   const dtpg=document.getElementById('mr-dtpg')?.value||'';
   const existente=id?DB.receber.find(x=>x.id===id):{};
-  // registra data de pagamento automaticamente ao marcar como pago
-  const dtPagamentoFinal = st==='pago' ? (dtpg||today) : (existente.dt_pagamento||'');
+  const dtPagamentoFinal=st==='pago'?(dtpg||today):(existente.dt_pagamento||'');
+  let v=0,parcelasDatas=undefined,venc='',dia='';
+  if(mod==='parcelado'){
+    const np=parseInt(document.getElementById('mr-np')?.value)||2;
+    parcelasDatas=[];
+    for(let i=0;i<np;i++){
+      const pv=parseFloat(document.getElementById(`mr-pv${i}`)?.value)||0;
+      const pvenc=document.getElementById(`mr-pvenc${i}`)?.value||'';
+      const existing=(existente.parcelasDatas||[])[i]||{};
+      parcelasDatas.push({n:i+1,valor:pv,venc:pvenc,pago:existing.pago||false,dataPagto:existing.dataPagto||'',comp:existing.comp||''});
+    }
+    v=parcelasDatas.reduce((s,p)=>s+p.valor,0);
+    venc=parcelasDatas.length>0?parcelasDatas[parcelasDatas.length-1].venc||'':'';
+  } else {
+    v=parseFloat(document.getElementById('mr-v')?.value)||0;
+    venc=document.getElementById('mr-d')?.value||'';
+    if(mod==='recorrente') dia=document.getElementById('mr-dia')?.value||'';
+  }
+  const e=mod==='simples'?(parseFloat(document.getElementById('mr-e')?.value)||0):0;
+  const faltaCalc=mod==='parcelado'
+    ?(parcelasDatas.filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0))
+    :Math.max(0,v-e);
   const obj={
     cliente:document.getElementById('mr-c').value,
     tipo:document.getElementById('mr-t').value,
-    status:st,valor:v,entrada:e,falta:Math.max(0,v-e),
+    modalidade:mod,
+    recorrente:mod==='recorrente',
+    status:st,
+    valor:v,
+    entrada:e,
+    falta:faltaCalc,
     evento:document.getElementById('mr-evento').value,
-    venc:document.getElementById('mr-d').value,
+    venc:venc,
     contratado:document.getElementById('mr-ct').value,
-    pgto:document.getElementById('mr-pg').value,
-    parcelas:parseInt(document.getElementById('mr-par').value)||1,
+    pgto:document.getElementById('mr-pg')?.value||'pix',
+    parcelas:mod==='simples'?(parseInt(document.getElementById('mr-par')?.value)||1):0,
     comp:document.getElementById('mr-cp').value,
     obs:document.getElementById('mr-o').value,
     dt_pagamento:dtPagamentoFinal,
   };
+  if(dia) obj.dia=parseInt(dia)||undefined;
+  if(parcelasDatas) obj.parcelasDatas=parcelasDatas;
   if(id){const i=DB.receber.findIndex(x=>x.id===id);DB.receber[i]={...DB.receber[i],...obj};log(`Editado: ${obj.cliente}`,'edit');}
   else{DB.receber.push({id:nR++,...obj});log(`Novo contrato: ${obj.cliente} · ${fmt(v)}`,'add');}
   save();closeMo();render();
