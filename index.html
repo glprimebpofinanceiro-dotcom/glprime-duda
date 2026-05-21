@@ -591,8 +591,15 @@ function rConc(){
   const doneBank=allBank.filter(x=>x.ok);
 
   const allSys=[];
-  DB.receber.forEach(r=>allSys.push({sid:'r'+r.id,tipo:'credito',valor:Number(r.falta||r.valor),desc:r.cliente+(r.evento?` — ${r.evento}`:''),data:r.venc||today,concId:r.concId||null,status:r.status}));
-  allPagarFlat().forEach(p=>allSys.push({sid:'p'+p.id,tipo:'debito',valor:Number(p.valor),desc:p.desc,data:`${p.mes}-${String(p.dia||1).padStart(2,'0')}`,concId:p.concId||null,pago:p.pago}));
+  DB.receber.forEach(r=>allSys.push({
+    sid:'r'+r.id, tipo:'credito',
+    valor:Number(r.falta||r.valor),       // valor pendente (já abatido parciais)
+    valorTotal:Number(r.valor),            // total original do contrato
+    desc:r.cliente+(r.evento?` — ${r.evento}`:''),
+    data:r.venc||today, concId:r.concId||null, status:r.status,
+    parciais:r.parciais||[], temParcial:(r.parciais||[]).length>0
+  }));
+  allPagarFlat().forEach(p=>allSys.push({sid:'p'+p.id,tipo:'debito',valor:Number(p.valor),valorTotal:Number(p.valor),desc:p.desc,data:`${p.mes}-${String(p.dia||1).padStart(2,'0')}`,concId:p.concId||null,pago:p.pago,parciais:[],temParcial:false}));
   allSys.sort((a,b)=>a.data.localeCompare(b.data));
 
   // Meses disponíveis nos registros do sistema
@@ -672,27 +679,38 @@ function rConc(){
       let compat='normal';
       if(selBankItem&&!isSel){
         if(selBankItem.tipo!==item.tipo) compat='wrong-type';
+        // Para receber: compara com o falta (valor pendente), não o total
         else if(Math.abs(selBankItem.valor-item.valor)<=0.05) compat='match';
+        else if(selBankItem.tipo==='credito'&&selBankItem.valor<item.valor) compat='parcial'; // entrada parcial
         else compat='diff-value';
       }
       const bg=isSel?'background:var(--plum-bg);outline:2px solid var(--plum);outline-offset:-2px;'
                :compat==='match'?'background:rgba(119,166,122,.14);outline:1px solid var(--sage);outline-offset:-1px;'
+               :compat==='parcial'?'background:rgba(212,175,55,.08);outline:1px solid var(--gold);outline-offset:-1px;'
                :compat==='wrong-type'?'opacity:.25;pointer-events:none;':'';
-      const cc=isSel?'var(--plum)':compat==='match'?'var(--sage)':'var(--bg4)';
-      const statusLabel=item.tipo==='credito'?(item.status==='pago'?'recebido':'a receber'):(item.pago?'pago':'a pagar');
+      const cc=isSel?'var(--plum)':compat==='match'?'var(--sage)':compat==='parcial'?'var(--gold)':item.temParcial?'var(--gold)':'var(--bg4)';
+      const statusLabel=item.tipo==='credito'?(item.status==='pago'?'recebido':item.temParcial?'parcialmente recebido':'a receber'):(item.pago?'pago':'a pagar');
       const matchTag=compat==='match'?`<span style="color:var(--sage);font-weight:700">← valor bate</span>`
-                    :compat==='diff-value'?`<span style="color:var(--gold)">dif. ${fmt(Math.abs(selBankItem.valor-item.valor))}</span>`:'';
+                    :compat==='parcial'?`<span style="color:var(--gold);font-weight:600">← entrada parcial (resta ${fmt(item.valor-selBankItem.valor)})</span>`
+                    :compat==='diff-value'?`<span style="color:var(--text3)">dif. ${fmt(Math.abs(selBankItem.valor-item.valor))}</span>`:'';
+      // Badge de parcial já recebido
+      const parciaisRecebidos=item.parciais.reduce((s,p)=>s+p.valor,0);
+      const parcialBadge=item.temParcial?`<span style="background:rgba(212,175,55,.15);color:var(--gold);border-radius:4px;padding:1px 5px;font-size:9px;font-weight:700;white-space:nowrap">parcial: ${fmt(parciaisRecebidos)} recebido · resta ${fmt(item.valor)}</span>`:'';
       return `<div onclick="selectConc('sys','${item.sid}')" style="${bg}display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--bg3);cursor:pointer">
-        <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${cc};display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;color:${cc}">${isSel?'◉':''}</div>
+        <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${cc};display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;color:${cc}">${isSel?'◉':item.temParcial?'½':''}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${item.desc}">${item.desc}</div>
-          <div style="font-size:10px;color:var(--text3);display:flex;gap:4px;flex-wrap:wrap">
+          <div style="font-size:10px;color:var(--text3);display:flex;gap:4px;flex-wrap:wrap;align-items:center">
             <span>${fmtD(item.data)}</span><span>·</span>
             <span style="color:${item.tipo==='credito'?'var(--sage)':'var(--rust)'}">${statusLabel}</span>
+            ${parcialBadge?`<span>·</span>${parcialBadge}`:''}
             ${matchTag?`<span>·</span>${matchTag}`:''}
           </div>
         </div>
-        <div style="font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;color:${item.tipo==='credito'?'var(--sage)':'var(--rust)'};white-space:nowrap;flex-shrink:0">${item.tipo==='credito'?'+':'-'}${fmt(item.valor)}</div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;color:${item.tipo==='credito'?'var(--sage)':'var(--rust)'};white-space:nowrap">${item.tipo==='credito'?'+':'-'}${fmt(item.valor)}</div>
+          ${item.temParcial?`<div style="font-size:9px;color:var(--text3);white-space:nowrap">de ${fmt(item.valorTotal)}</div>`:''}
+        </div>
       </div>`;
     };
 
@@ -767,10 +785,14 @@ function rConc(){
         html+=`<div style="padding:16px;text-align:center;color:var(--text3);font-size:12px">Nenhum conciliado neste mês.</div>`;
       } else {
         doneFilt.forEach(bank=>{
-          const linked=allSys.find(s=>s.concId===bank.id);
-          const sysLabel=linked?linked.desc:'(sem vínculo no sistema)';
+          // Tenta vínculo total primeiro, depois parcial
+          const linkedFull=allSys.find(s=>s.concId===bank.id);
+          const linkedParcial=!linkedFull?DB.receber.find(r=>(r.parciais||[]).some(p=>p.bankId===bank.id)):null;
+          const linked=linkedFull||(linkedParcial?{desc:linkedParcial.cliente+(linkedParcial.evento?` — ${linkedParcial.evento}`:''),data:linkedParcial.venc||today,isParcial:true,falta:linkedParcial.falta,valorTotal:linkedParcial.valor}:null);
+          const sysLabel=linked?linked.desc:'(sem vínculo registrado)';
+          const isParcial=linked?.isParcial;
           html+=`<div style="display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--bg3)">
-            <div style="width:18px;height:18px;border-radius:50%;background:var(--sage);display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;flex-shrink:0">✓</div>
+            <div style="width:18px;height:18px;border-radius:50%;background:${isParcial?'var(--gold)':'var(--sage)'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;flex-shrink:0">${isParcial?'½':'✓'}</div>
             <div style="flex:1;min-width:0;display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center">
               <div style="min-width:0">
                 <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${bank.desc}">${bank.desc}</div>
@@ -780,6 +802,7 @@ function rConc(){
               <div style="min-width:0">
                 <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${sysLabel}">${sysLabel}</div>
                 <div style="font-size:10px;color:var(--text3)">${linked?fmtD(linked.data)+' · sistema':''}</div>
+                ${isParcial?`<div style="font-size:9px;color:var(--gold);font-weight:600">parcial · resta ${fmt(linked.falta)} de ${fmt(linked.valorTotal)}</div>`:''}
               </div>
             </div>
             <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${bank.tipo==='credito'?'var(--sage)':'var(--rust)'};white-space:nowrap;flex-shrink:0">${bank.tipo==='credito'?'+':'-'}${fmt(bank.valor)}</div>
@@ -815,27 +838,46 @@ function selectConc(src,id){
   }
 
   // ── Validação 1: tipo deve bater ─────────────────────────────────────────────
-  // entrada(+) só casa com "a receber"; saída(-) só casa com "a pagar"
   if(sysTipo && bank.tipo !== sysTipo){
-    alert(`❌ Tipos incompatíveis!\n\nExtrato: ${bank.tipo==='credito'?'Entrada (+)':'Saída (-)'} ${fmt(bank.valor)}\nSistema: ${sysTipo==='credito'?'A receber (+)':'A pagar (-)'} ${fmt(sysValor)}\n\nEntrada do extrato só pode ser conciliada com "a receber".\nSaída do extrato só pode ser conciliada com "a pagar".`);
+    alert(`❌ Tipos incompatíveis!\n\nExtrato: ${bank.tipo==='credito'?'Entrada (+)':'Saída (-)'} ${fmt(bank.valor)}\nSistema: ${sysTipo==='credito'?'A receber (+)':'A pagar (-)'} ${fmt(sysValor)}\n\nEntrada só casa com "a receber". Saída só casa com "a pagar".`);
     concSel=null;rConc();return;
   }
 
-  // ── Validação 2: valor deve ser igual (tolerância R$0,05) ────────────────────
+  // ── Validação 2: valor — detecta parcial automaticamente ─────────────────────
   const diff=Math.abs(bank.valor-sysValor);
   if(diff>0.05){
+    // Pagamento parcial: valor do extrato MENOR que o contrato
+    if(sysTipo==='credito' && bank.valor < sysValor){
+      const restante=sysValor-bank.valor;
+      if(!confirm(`💰 Pagamento parcial detectado!\n\nRecebido agora: ${fmt(bank.valor)}\nTotal do contrato: ${fmt(sysValor)}\nRestante após este pagamento: ${fmt(restante)}\n\nAplicar como entrada parcial? O contrato continuará em aberto pelo restante.`)){
+        concSel=null;rConc();return;
+      }
+      // Aplica parcial
+      bank.ok=true;bank.obs=`Parcial: ${sysDesc} (resta ${fmt(restante)})`;
+      const r=DB.receber.find(x=>x.id===parseInt(sidStr.slice(1)));
+      if(r){
+        if(!r.parciais)r.parciais=[];
+        r.parciais.push({bankId,valor:bank.valor,data:bank.data});
+        r.falta=Math.max(0,restante);
+        // Se zerou: quita o contrato
+        if(r.falta<=0.05){r.falta=0;r.status='pago';r.concId=bankId;bank.obs=`Quitado: ${r.cliente}`;}
+      }
+      log(`Pagamento parcial: ${bank.desc} → ${sysDesc}`,'add');
+      save();concSel=null;rConc();return;
+    }
+    // Valor maior que contrato ou saída com valor diferente
     const pct=(diff/Math.max(bank.valor,sysValor)*100).toFixed(1);
-    if(!confirm(`⚠ Valores diferentes!\n\nExtrato: ${fmt(bank.valor)}\nSistema: ${fmt(sysValor)}\nDiferença: ${fmt(diff)} (${pct}%)\n\nGeralmente isso indica registros distintos.\nDeseja conciliar assim mesmo?`)){
+    if(!confirm(`⚠ Valores diferentes!\n\nExtrato: ${fmt(bank.valor)}\nSistema: ${fmt(sysValor)}\nDiferença: ${fmt(diff)} (${pct}%)\n\nDeseja conciliar assim mesmo?`)){
       concSel=null;rConc();return;
     }
     bank.obs=`Conciliado c/ dif. ${fmt(diff)}`;
   }
 
-  // ── Vincula ──────────────────────────────────────────────────────────────────
+  // ── Vincula normalmente (valor bateu ou usuário confirmou) ────────────────────
   bank.ok=true;
   if(sidStr.startsWith('r')){
     const r=DB.receber.find(x=>x.id===parseInt(sidStr.slice(1)));
-    if(r){r.concId=bankId;if(!bank.obs)bank.obs=`Conciliado: ${r.cliente}`;}
+    if(r){r.concId=bankId;r.falta=0;r.status='pago';if(!bank.obs)bank.obs=`Conciliado: ${r.cliente}`;}
   } else {
     const pid=parseInt(sidStr.slice(1));
     Object.keys(DB.pagar).forEach(m=>DB.pagar[m].forEach(p=>{if(p.id===pid){p.concId=bankId;if(!bank.obs)bank.obs=`Conciliado: ${p.desc}`;}}));
@@ -847,14 +889,22 @@ function desfazerConc(bankId){
   const bank=DB.conc.find(x=>x.id===bankId);
   if(!bank)return;
   bank.ok=false;bank.obs='';
-  DB.receber.forEach(r=>{if(r.concId===bankId)delete r.concId;});
+  // Desfaz vínculo total
+  DB.receber.forEach(r=>{
+    if(r.concId===bankId){delete r.concId;r.status='pendente';r.falta=Number(r.falta||0);}
+    // Desfaz parcial
+    if(r.parciais){
+      const idx=r.parciais.findIndex(p=>p.bankId===bankId);
+      if(idx>=0){r.falta=Number(r.falta||0)+r.parciais[idx].valor;r.parciais.splice(idx,1);}
+    }
+  });
   Object.keys(DB.pagar).forEach(m=>DB.pagar[m].forEach(p=>{if(p.concId===bankId)delete p.concId;}));
   log(`Conciliação desfeita: ${bank.desc}`,'edit');save();rConc();
 }
 function limparConc(){
   if(!confirm(`Limpar toda a conciliação?\n\nIsso apaga o extrato importado e desvincula os registros.\nAs contas a receber e a pagar NÃO serão apagadas.`))return;
   DB.conc=[];nC=50;
-  DB.receber.forEach(r=>delete r.concId);
+  DB.receber.forEach(r=>{delete r.concId;delete r.parciais;r.falta=Number(r.valor);if(r.status==='pago')r.status='pendente';});
   Object.keys(DB.pagar).forEach(m=>DB.pagar[m].forEach(p=>delete p.concId));
   log('Conciliação zerada','edit');save();concSel=null;rConc();
 }
