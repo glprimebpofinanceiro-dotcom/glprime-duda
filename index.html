@@ -473,8 +473,8 @@ function rReceber(){
     its.forEach(r=>{
       const isParc=Array.isArray(r.parcelasDatas)&&r.parcelasDatas.length>0;
       const isRec=r.recorrente;
-      const nPgParc=isParc?r.parcelasDatas.filter(x=>x.pago).length:0;
-      const falta=Number(r.falta||0);
+      const nPgParc=isParc?(r.status==='pago'?r.parcelasDatas.length:r.parcelasDatas.filter(x=>x.pago).length):0;
+      const falta=r.status==='pago'?0:Number(r.falta||0);
       html+=`<div class="card" style="margin-bottom:0">
         <div style="padding:12px 14px;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
           <div style="flex:1;min-width:200px">
@@ -514,11 +514,11 @@ function rReceber(){
         </div>
         ${isParc?`<div style="padding:0 14px 12px;display:grid;gap:4px">
           ${r.parcelasDatas.map((pc,i)=>`
-            <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:${pc.pago?'rgba(119,166,122,.08)':'var(--bg3)'}">
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:${(pc.pago||r.status==='pago')?'rgba(119,166,122,.08)':'var(--bg3)'}">
               <span style="font-size:10px;color:var(--text3);min-width:52px">Parc. ${pc.n||i+1}</span>
-              <span style="font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${pc.pago?'var(--sage)':'var(--rust)'}">${fmt(pc.valor)}</span>
+              <span style="font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${(pc.pago||r.status==='pago')?'var(--sage)':'var(--rust)'}">${fmt(pc.valor)}</span>
               <span style="font-size:10px;color:var(--text3);flex:1">${pc.venc?fmtD(pc.venc):'sem data'}</span>
-              ${pc.pago
+              ${(pc.pago||r.status==='pago')
                 ?`<span style="font-size:10px;color:var(--sage)">✓ recebido ${pc.dataPagto?fmtD(pc.dataPagto):''}</span>${pc.comp?`<a href="${pc.comp}" target="_blank" style="font-size:10px;color:var(--plum)">📎</a>`:''}`
                 :`<button class="btn sm" style="font-size:10px;padding:2px 8px" onclick="mBaixaR(${r.id},${i})">Receber</button>`}
             </div>`).join('')}
@@ -1719,6 +1719,8 @@ function saveR(id){
     }
     v=parcelasDatas.reduce((s,p)=>s+p.valor,0);
     venc=parcelasDatas.length>0?parcelasDatas[parcelasDatas.length-1].venc||'':'';
+    // Se status=pago marcado no modal, sincroniza todas as parcelas
+    if(st==='pago') parcelasDatas.forEach(p=>{p.pago=true;if(!p.dataPagto)p.dataPagto=dtPagamentoFinal;});
   } else {
     v=parseFloat(document.getElementById('mr-v')?.value)||0;
     venc=document.getElementById('mr-d')?.value||'';
