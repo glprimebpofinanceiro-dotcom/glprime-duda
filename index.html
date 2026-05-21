@@ -366,13 +366,28 @@ let filtMes='todos',filtTipo='todos';
 let pagarMesSel='2026-05';
 
 async function load(){
-  try{const r=await S.get('glprime_v5');if(r?.value){const d=JSON.parse(r.value);DB=d.DB;nR=d.nR;nP=d.nP;nC=d.nC;nPl=d.nPl;}}catch(e){}
-  // Ensure pagar is object keyed by month
-  if(Array.isArray(DB.pagar)){
-    const arr=DB.pagar;DB.pagar={'2026-05':arr};
-  }
+  try{
+    const r=await S.get('glprime_v5');
+    if(r?.value){
+      const d=JSON.parse(r.value);
+      if(d.DB){
+        DB=d.DB;
+        nR=d.nR||16;nP=d.nP||200;nC=d.nC||50;nPl=d.nPl||12;
+      }
+    }
+  }catch(e){console.warn('load error:',e);}
+  // Garantir estrutura mínima mesmo se dados corrompidos
+  if(!DB||typeof DB!=='object')DB=JSON.parse(JSON.stringify(defaultDB));
+  if(!Array.isArray(DB.receber))DB.receber=[];
+  if(!DB.pagar||typeof DB.pagar!=='object')DB.pagar={};
+  if(Array.isArray(DB.pagar)){const arr=DB.pagar;DB.pagar={'2026-05':arr};}
+  if(!Array.isArray(DB.conc))DB.conc=[];
+  if(!Array.isArray(DB.hist))DB.hist=[];
+  if(!Array.isArray(DB.plano))DB.plano=defaultDB.plano;
+  if(!DB.config||typeof DB.config!=='object')DB.config=defaultDB.config;
   document.getElementById('tb-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
   render();
+}
 }
 async function save(){try{await S.set('glprime_v5',JSON.stringify({DB,nR,nP,nC,nPl}));}catch(e){}}
 function log(msg,tipo='info'){DB.hist.unshift({ts:nowStr(),msg,tipo});if(DB.hist.length>300)DB.hist.pop();save();}
