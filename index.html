@@ -536,24 +536,63 @@ function rPagar(){
         <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3)">${info.l}</span>
         <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${info.c};margin-left:auto">${fmt(sub)}/mês</span>
       </div>
-      <div class="pagar-grid">${catIts.map(p=>`
-        <div class="pi ${cat} ${p.pago?'done':''}">
+      <div class="pagar-grid">${catIts.map(p=>{
+        const isParc=p.tipo==='parcelado'&&p.parcelas?.length;
+        const isRec=p.tipo==='recorrente'||p.recorrente;
+        const vencLabel=p.venc?`Venc. ${fmtD(p.venc)}`:p.dia?`Venc. dia ${p.dia}`:'';
+        const pagtoLabel=p.pago&&p.dataPagto?`Pago em ${fmtD(p.dataPagto)}`:'';
+        const compLabel=p.comprovante?`<a href="${p.comprovante}" target="_blank" style="font-size:10px;color:var(--plum);text-decoration:none" title="Comprovante">📎 comprov.</a>`:'';
+        if(isParc){
+          const nPg=p.parcelas.filter(x=>x.pago).length;
+          return `<div class="pi ${cat} ${p.pago?'done':''}" style="grid-column:1/-1">
+            <div class="pi-head" style="justify-content:space-between">
+              <div>
+                <div class="pi-desc">${p.desc} <span style="font-size:10px;background:var(--plum-bg);color:var(--plum);border-radius:4px;padding:1px 5px">📋 ${nPg}/${p.parcelas.length} pagas</span></div>
+                <div class="pi-obs">${p.obs||cat}</div>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button class="btn ghost sm" onclick="mPagar('${m}',${p.id})">✎</button>
+                <button class="btn ghost sm" onclick="delP('${m}',${p.id})">✕</button>
+              </div>
+            </div>
+            <div style="margin-top:8px;display:grid;gap:4px">
+              ${p.parcelas.map((pc,i)=>`
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:${pc.pago?'rgba(119,166,122,.08)':'var(--bg3)'}">
+                  <span style="font-size:10px;color:var(--text3);min-width:52px">Parc. ${pc.n||i+1}</span>
+                  <span style="font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${pc.pago?'var(--sage)':'var(--rust)'}">${fmt(pc.valor)}</span>
+                  <span style="font-size:10px;color:var(--text3);flex:1">${pc.venc?fmtD(pc.venc):'sem data'}</span>
+                  ${pc.pago?`<span style="font-size:10px;color:var(--sage)">✓ ${pc.dataPagto?fmtD(pc.dataPagto):''}</span>${pc.comprovante?`<a href="${pc.comprovante}" target="_blank" style="font-size:10px;color:var(--plum)">📎</a>`:''}`:
+                  `<button class="btn sm" style="font-size:10px;padding:2px 8px" onclick="mBaixa('${m}',${p.id},${i})">Baixar</button>`}
+                </div>`).join('')}
+            </div>
+          </div>`;
+        }
+        return `<div class="pi ${cat} ${p.pago?'done':''}">
           <div class="pi-head">
-            <div><div class="pi-desc">${p.desc}</div><div class="pi-obs">${p.obs||cat}</div></div>
+            <div>
+              <div class="pi-desc">${p.desc}${isRec?` <span style="font-size:9px;background:rgba(119,166,122,.15);color:var(--sage);border-radius:4px;padding:1px 5px">🔄 recorrente</span>`:''}
+              </div>
+              <div class="pi-obs">${p.obs||cat}</div>
+            </div>
           </div>
           <div class="pi-val ${p.pago?'paid':'unpaid'}">${fmt(p.valor)}</div>
           <div class="pi-foot">
-            <span class="pi-dia">Venc. dia ${p.dia}</span>
-            <div style="display:flex;align-items:center;gap:8px">
-              <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);cursor:pointer">
-                <div class="toggle-sw"><input type="checkbox" ${p.pago?'checked':''} onchange="toggleP('${m}',${p.id},this.checked)"><span class="toggle-sl"></span></div>
-                ${p.pago?'Pago':'Pendente'}
-              </label>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              ${vencLabel?`<span class="pi-dia">${vencLabel}</span>`:''}
+              ${pagtoLabel?`<span style="font-size:10px;color:var(--sage)">${pagtoLabel}</span>`:''}
+              ${compLabel}
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              ${!p.pago?`<button class="btn sm" style="font-size:10px;padding:2px 10px;background:var(--sage);color:#fff;border:none" onclick="mBaixa('${m}',${p.id})">↓ Baixar</button>`
+              :`<label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);cursor:pointer">
+                  <div class="toggle-sw"><input type="checkbox" checked onchange="toggleP('${m}',${p.id},this.checked)"><span class="toggle-sl"></span></div>Pago
+                </label>`}
               <button class="btn ghost sm" onclick="mPagar('${m}',${p.id})">✎</button>
               <button class="btn ghost sm" onclick="delP('${m}',${p.id})">✕</button>
             </div>
           </div>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
       </div>
     </div>`;
   });
@@ -605,8 +644,8 @@ function rConc(){
   // Meses disponíveis nos registros do sistema
   const mesesSys=[...new Set(allSys.map(x=>x.data.substring(0,7)).filter(Boolean))].sort();
 
-  // Aplica filtros
-  const pendSysAll=allSys.filter(x=>!x.concId);
+  // Aplica filtros — exclui pagos manualmente (sem concId mas com pago=true)
+  const pendSysAll=allSys.filter(x=>!x.concId&&!x.pago);
   const pendSys=pendSysAll.filter(x=>{
     if(concFiltTipo!=='todos'&&x.tipo!==concFiltTipo)return false;
     if(concFiltMes!=='todos'&&!x.data.startsWith(concFiltMes))return false;
@@ -1588,26 +1627,97 @@ function saveR(id){
   save();closeMo();render();
 }
 
+function mPagarParcelasHtml(np,parcelas){
+  let h='';
+  for(let i=0;i<np;i++){const pc=parcelas?.[i]||{};h+=`<div style="display:grid;grid-template-columns:60px 1fr 1fr;gap:6px;align-items:center;margin-bottom:5px"><span style="font-size:11px;color:var(--text3)">Parc. ${i+1}</span><input class="inp" type="number" id="mp-pv${i}" value="${pc.valor||''}" placeholder="R$"><input class="inp" type="date" id="mp-pvenc${i}" value="${pc.venc||''}"></div>`;}
+  return h;
+}
+function mPagarCampos(tipo,p){
+  if(tipo==='parcelado'){const np=p.parcelas?.length||2;return `<div class="fg"><label class="fl">Nº de parcelas</label><input class="inp" type="number" id="mp-np" min="2" max="36" value="${np}" oninput="document.getElementById('mp-parc').innerHTML=mPagarParcelasHtml(+this.value,null)"></div><div id="mp-parc">${mPagarParcelasHtml(np,p.parcelas)}</div>`;}
+  return `<div class="fr2"><div class="fg"><label class="fl">Valor (R$)</label><input class="inp" type="number" id="mp-v" value="${p.valor||''}"></div><div class="fg"><label class="fl">Vencimento</label><input class="inp" type="date" id="mp-venc" value="${p.venc||''}"></div></div>${tipo==='recorrente'?`<div class="fg"><label class="fl">Dia do mês (para recorrência)</label><input class="inp" type="number" id="mp-dia" min="1" max="31" value="${p.dia||''}" placeholder="Ex: 10"></div>`:''}`;}
 function mPagar(mes,id){
   const m=mes||pagarMesSel;
   const p=id?(pagarMes(m).find(x=>x.id===id)||{}):{};
+  const tipo=p.tipo||(p.recorrente?'recorrente':'avulso');
   document.getElementById('m-title').textContent=id?`Editar despesa — ${mLabel(m)}`:`Nova despesa — ${mLabel(m)}`;
   document.getElementById('m-body').innerHTML=`
     <div class="fg"><label class="fl">Descrição</label><input class="inp" id="mp-d" value="${p.desc||''}"></div>
-    <div class="fr3">
-      <div class="fg"><label class="fl">Valor (R$)</label><input class="inp" type="number" id="mp-v" value="${p.valor||''}"></div>
-      <div class="fg"><label class="fl">Dia vencimento</label><input class="inp" id="mp-dia" value="${p.dia||''}" placeholder="Ex: 10"></div>
-      <div class="fg"><label class="fl">Categoria</label><select class="inp" id="mp-c"><option value="fixo" ${p.cat==='fixo'?'selected':''}>Fixo obrigatório</option><option value="operacional" ${p.cat==='operacional'?'selected':''}>Operacional</option><option value="marketing" ${p.cat==='marketing'?'selected':''}>Marketing</option><option value="prolabore" ${p.cat==='prolabore'?'selected':''}>Pró-labore</option><option value="pessoal" ${p.cat==='pessoal'?'selected':''}>Pessoal no CNPJ</option></select></div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Tipo</label>
+        <select class="inp" id="mp-tipo" onchange="document.getElementById('mp-campos').innerHTML=mPagarCampos(this.value,{})">
+          <option value="avulso" ${tipo==='avulso'?'selected':''}>Avulso (única vez)</option>
+          <option value="recorrente" ${tipo==='recorrente'?'selected':''}>🔄 Recorrente (mensal)</option>
+          <option value="parcelado" ${tipo==='parcelado'?'selected':''}>📋 Parcelado</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">Categoria</label>
+        <select class="inp" id="mp-c">
+          <option value="fixo" ${p.cat==='fixo'?'selected':''}>Fixo obrigatório</option>
+          <option value="operacional" ${p.cat==='operacional'?'selected':''}>Operacional</option>
+          <option value="marketing" ${p.cat==='marketing'?'selected':''}>Marketing</option>
+          <option value="prolabore" ${p.cat==='prolabore'?'selected':''}>Pró-labore</option>
+          <option value="pessoal" ${p.cat==='pessoal'?'selected':''}>Pessoal no CNPJ</option>
+        </select>
+      </div>
     </div>
+    <div id="mp-campos">${mPagarCampos(tipo,p)}</div>
     <div class="fg"><label class="fl">Observação</label><textarea class="inp" id="mp-o">${p.obs||''}</textarea></div>`;
   document.getElementById('m-foot').innerHTML=`<button class="btn" onclick="closeMo()">Cancelar</button><button class="btn primary" onclick="saveP('${m}',${id||0})">Salvar</button>`;
   document.getElementById('mo').classList.add('open');
 }
 function saveP(m,id){
   if(!DB.pagar[m])DB.pagar[m]=[];
-  const obj={desc:document.getElementById('mp-d').value,valor:parseFloat(document.getElementById('mp-v').value)||0,dia:document.getElementById('mp-dia').value,cat:document.getElementById('mp-c').value,obs:document.getElementById('mp-o').value,pago:id?(pagarMes(m).find(x=>x.id===id)?.pago||false):false};
-  if(id){const i=DB.pagar[m].findIndex(x=>x.id===id);if(i>=0)DB.pagar[m][i]={...DB.pagar[m][i],...obj};log(`Despesa editada: ${obj.desc}`,'edit');}
-  else{DB.pagar[m].push({id:nP++,...obj});log(`Nova despesa: ${obj.desc} · ${fmt(obj.valor)}`,'add');}
+  const tipo=document.getElementById('mp-tipo')?.value||'avulso';
+  const desc=document.getElementById('mp-d').value;
+  const cat=document.getElementById('mp-c').value;
+  const obs=document.getElementById('mp-o').value;
+  const existing=id?pagarMes(m).find(x=>x.id===id):null;
+  let obj={desc,cat,obs,tipo,recorrente:tipo==='recorrente',pago:existing?.pago||false,dataPagto:existing?.dataPagto||null,comprovante:existing?.comprovante||''};
+  if(tipo==='parcelado'){
+    const np=parseInt(document.getElementById('mp-np')?.value)||2;
+    const parcelas=[];let total=0;
+    for(let i=0;i<np;i++){const v=parseFloat(document.getElementById(`mp-pv${i}`)?.value)||0;const venc=document.getElementById(`mp-pvenc${i}`)?.value||'';const pcE=existing?.parcelas?.[i]||{};parcelas.push({n:i+1,valor:v,venc,pago:pcE.pago||false,dataPagto:pcE.dataPagto||null,comprovante:pcE.comprovante||''});total+=v;}
+    obj.parcelas=parcelas;obj.valor=total;obj.dia='';obj.venc='';
+  } else {
+    obj.valor=parseFloat(document.getElementById('mp-v')?.value)||0;
+    obj.venc=document.getElementById('mp-venc')?.value||'';
+    obj.dia=document.getElementById('mp-dia')?.value||'';
+  }
+  if(id){const i=DB.pagar[m].findIndex(x=>x.id===id);if(i>=0)DB.pagar[m][i]={...DB.pagar[m][i],...obj};log(`Despesa editada: ${desc}`,'edit');}
+  else{DB.pagar[m].push({id:nP++,...obj});log(`Nova despesa: ${desc} · ${fmt(obj.valor)}`,'add');}
+  save();closeMo();render();
+}
+function mBaixa(m,id,parcelaIdx){
+  const p=pagarMes(m).find(x=>x.id===id);if(!p)return;
+  const isParc=parcelaIdx!==undefined&&parcelaIdx!==null;
+  const item=isParc?p.parcelas[parcelaIdx]:p;
+  document.getElementById('m-title').textContent=isParc?`Baixar parcela ${(parcelaIdx+1)} — ${p.desc}`:`Baixar — ${p.desc}`;
+  document.getElementById('m-body').innerHTML=`
+    <div class="al i" style="margin-bottom:12px">Valor: <strong>${fmt(item.valor)}</strong> · ${p.cat}${isParc?` · Parc. ${parcelaIdx+1}/${p.parcelas.length}`:''}</div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Data do pagamento</label><input class="inp" type="date" id="mb-data" value="${today}"></div>
+      <div class="fg"><label class="fl">Valor pago (R$)</label><input class="inp" type="number" id="mb-valor" value="${item.valor}"></div>
+    </div>
+    <div class="fg"><label class="fl">Comprovante (link ou nome do arquivo)</label><input class="inp" id="mb-comp" placeholder="Ex: drive.google.com/... ou pix-mai.pdf" value="${item.comprovante||''}"></div>
+    <div class="fg"><label class="fl">Observação</label><input class="inp" id="mb-obs" placeholder="Opcional"></div>`;
+  document.getElementById('m-foot').innerHTML=`<button class="btn" onclick="closeMo()">Cancelar</button><button class="btn primary" onclick="saveBaixa('${m}',${id},${isParc?parcelaIdx:'null'})">✓ Confirmar baixa</button>`;
+  document.getElementById('mo').classList.add('open');
+}
+function saveBaixa(m,id,parcelaIdx){
+  const p=pagarMes(m).find(x=>x.id===id);if(!p)return;
+  const data=document.getElementById('mb-data').value;
+  const comp=document.getElementById('mb-comp').value;
+  const obs=document.getElementById('mb-obs').value;
+  if(parcelaIdx!==null&&parcelaIdx!==undefined){
+    const pc=p.parcelas[parcelaIdx];
+    pc.pago=true;pc.dataPagto=data;pc.comprovante=comp;if(obs)pc.obs=obs;
+    if(p.parcelas.every(x=>x.pago)){p.pago=true;p.dataPagto=data;}
+    log(`Baixa parcela ${parcelaIdx+1}: ${p.desc}`,'add');
+  } else {
+    p.pago=true;p.dataPagto=data;p.comprovante=comp;
+    if(obs)p.obs=(p.obs?p.obs+' · ':'')+obs;
+    log(`Baixa manual: ${p.desc} · ${data}`,'add');
+  }
   save();closeMo();render();
 }
 
