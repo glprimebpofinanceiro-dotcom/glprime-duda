@@ -578,7 +578,8 @@ function rConc(){
     <button class="btn" onclick="document.getElementById('finp').click()">⬆ Importar extrato</button>
     <button class="btn" onclick="autoConciliar()">⚡ Auto-conciliar</button>
     <button class="btn primary" onclick="rodarIA()">✦ Analisar com IA</button>
-    <button class="btn" onclick="mConc()">+ Manual</button>`;
+    <button class="btn" onclick="mConc()">+ Manual</button>
+    <button class="btn" style="border-color:var(--rust-dim);color:var(--rust);margin-left:auto" onclick="limparConc()">🗑 Limpar conciliação</button>`;
 
   const bankItems=[...DB.conc].sort((a,b)=>b.data.localeCompare(a.data));
 
@@ -754,6 +755,13 @@ function selectConc(src,id){
   }
   log(`Conciliação: ${bank.desc} ↔ ${fmt(bank.valor)}`,'add');
   save();concSel=null;rConc();
+}
+function limparConc(){
+  if(!confirm(`Limpar toda a conciliação?\n\nIsso apaga o extrato importado e desvincula os registros.\nAs contas a receber e a pagar NÃO serão apagadas.`))return;
+  DB.conc=[];nC=50;
+  DB.receber.forEach(r=>delete r.concId);
+  Object.keys(DB.pagar).forEach(m=>DB.pagar[m].forEach(p=>delete p.concId));
+  log('Conciliação zerada','edit');save();concSel=null;rConc();
 }
 function autoConciliar(){
   let matched=0;
