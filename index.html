@@ -383,6 +383,13 @@ function pagarMes(m){return DB.pagar[m]||[];}
 function pagarTotal(m){return pagarMes(m).reduce((s,x)=>s+Number(x.valor),0);}
 function receitaMes(m){return DB.receber.filter(x=>x.venc?.startsWith(m)).reduce((s,x)=>s+Number(x.valor),0);}
 function allPagarFlat(){const out=[];Object.keys(DB.pagar).forEach(m=>DB.pagar[m].forEach(p=>out.push({...p,mes:m})));return out;}
+// Retorna array canônico de pagamentos de um contrato (compatível com formatos antigo e novo)
+function rGetPgtos(r){
+  if(r.pgtos&&r.pgtos.length>0)return r.pgtos;
+  if(r.parcelasDatas&&r.parcelasDatas.length>0)return r.parcelasDatas.map((p,i)=>({n:p.n||i+1,tipo:'parcela',desc:`Parcela ${p.n||i+1}`,valor:Number(p.valor||0),venc:p.venc||'',pago:p.pago||false,dataPagto:p.dataPagto||'',comp:p.comp||'',concId:''}));
+  const pago=r.status==='pago';
+  return [{n:1,tipo:'pagamento',desc:'Pagamento',valor:Number(r.valor||0),venc:r.venc||'',pago,dataPagto:r.dt_pagamento||'',comp:r.comp||'',concId:r.concId||''}];
+}
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
 function rDashboard(){
@@ -462,123 +469,136 @@ function rDashboard(){
 // ─── RECEBER ─────────────────────────────────────────────────────────────────
 function rReceber(){
   document.getElementById('tba').innerHTML=`<button class="btn primary" onclick="mReceber()">+ Novo contrato</button>`;
-  const grp={};DB.receber.forEach(r=>{const m=mKey(r.venc)||'sem-data';(grp[m]=grp[m]||[]).push(r);});
+  const svIcon={storymaker:'🎬',corporativo:'🏢',social_media:'📱',social:'📱'};
+  const fpLabel={avista:'à vista c/ 10% desc',parcelado_cartao:'parcelado cartão',sinal_parcelado:'sinal + parcelado',recorrente:'recorrente mensal'};
+  const grp={};DB.receber.forEach(r=>{const pgts=rGetPgtos(r);const refDate=r.dataEvento||r.evento||(pgts[pgts.length-1]?.venc)||r.venc||'';const m=mKey(refDate)||'sem-data';(grp[m]=grp[m]||[]).push(r);});
   let html='';
   Object.keys(grp).sort().forEach(m=>{
     const its=grp[m];
-    const tot=its.reduce((s,x)=>s+Number(x.valor),0);
-    const rec=its.filter(x=>x.status==='pago').reduce((s,x)=>s+Number(x.valor),0);
-    html+=`<div style="margin-bottom:18px"><div class="mhd"><span class="mhd-t">${m==='sem-data'?'Sem data':mLabel(m)}</span><span class="mhd-m">${fmt(tot)} · <span style="color:var(--sage)">${fmt(rec)} recebido</span></span></div>
+    const totContrato=its.reduce((s,x)=>s+Number(x.valorContrato||x.valor||0),0);
+    const totRecebido=its.reduce((s,x)=>{const pg=rGetPgtos(x);return s+pg.filter(p=>p.pago).reduce((a,p)=>a+p.valor,0);},0);
+    html+=`<div style="margin-bottom:18px"><div class="mhd"><span class="mhd-t">${m==='sem-data'?'Sem data':mLabel(m)}</span><span class="mhd-m">${fmt(totContrato)} · <span style="color:var(--sage)">${fmt(totRecebido)} recebido</span></span></div>
     <div style="display:flex;flex-direction:column;gap:8px">`;
     its.forEach(r=>{
-      const isParc=Array.isArray(r.parcelasDatas)&&r.parcelasDatas.length>0;
-      const isRec=r.recorrente;
-      const nPgParc=isParc?(r.status==='pago'?r.parcelasDatas.length:r.parcelasDatas.filter(x=>x.pago).length):0;
-      const falta=r.status==='pago'?0:Number(r.falta||0);
+      const pgtos=rGetPgtos(r);
+      const valorContrato=Number(r.valorContrato||r.valor||0);
+      const valorRecebido=pgtos.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+      const valorPendente=pgtos.filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+      const nPago=pgtos.filter(p=>p.pago).length;
+      const isRec=r.formaPgto==='recorrente'||r.recorrente;
+      const sv=r.servico||r.tipo||'storymaker';
+      const icon=svIcon[sv]||'📋';
+      const fp=fpLabel[r.formaPgto]||'';
+      const stBadge=r.status==='pago'?`<span class="bx b-pago" style="margin:0">✓ pago</span>`:r.status==='parcial'?`<span style="font-size:10px;background:rgba(240,180,40,.1);color:#f0b428;border-radius:4px;padding:2px 7px;border:1px solid rgba(240,180,40,.3)">⬤ parcial</span>`:r.status==='atrasado'?`<span class="bx" style="margin:0;background:rgba(214,95,79,.1);color:var(--rust)">⚠ atrasado</span>`:`<span class="bx" style="margin:0;background:var(--bg3);color:var(--text3)">pendente</span>`;
       html+=`<div class="card" style="margin-bottom:0">
-        <div style="padding:12px 14px;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
-          <div style="flex:1;min-width:200px">
-            <div style="font-size:13px;font-weight:700;margin-bottom:3px">${r.cliente}
-              ${isRec?`<span style="font-size:9px;background:rgba(119,166,122,.15);color:var(--sage);border-radius:4px;padding:1px 5px;margin-left:4px">🔄 recorrente</span>`:''}
-              ${isParc?`<span style="font-size:9px;background:var(--plum-bg);color:var(--plum);border-radius:4px;padding:1px 5px;margin-left:4px">📋 ${nPgParc}/${r.parcelasDatas.length} pagas</span>`:''}
+        <div style="padding:12px 14px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
+            <div style="flex:1;min-width:200px">
+              <div style="font-size:13px;font-weight:700;margin-bottom:4px">${icon} ${r.cliente}
+                ${isRec?`<span style="font-size:9px;background:rgba(119,166,122,.15);color:var(--sage);border-radius:4px;padding:1px 5px;margin-left:4px">🔄 recorrente</span>`:''}
+                ${pgtos.length>1&&!isRec?`<span style="font-size:9px;background:var(--plum-bg);color:var(--plum);border-radius:4px;padding:1px 5px;margin-left:4px">${nPago}/${pgtos.length} pagos</span>`:''}
+              </div>
+              <div style="font-size:11px;color:var(--text3);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <span class="bx b-${sv}" style="margin:0;font-size:10px">${r.subTipo||sv}</span>
+                ${fp?`<span>${fp}</span>`:''}
+                ${r.dataEvento||r.evento?`<span>📅 ${fmtD(r.dataEvento||r.evento)}</span>`:''}
+                ${r.local?`<span>📍 ${r.local}</span>`:''}
+                ${r.dataContratacao||r.contratado?`<span style="color:var(--text3)">Contratado ${fmtD(r.dataContratacao||r.contratado)}</span>`:''}
+              </div>
+              ${r.obs?`<div style="font-size:10px;color:var(--text3);margin-top:3px;font-style:italic">${r.obs}</div>`:''}
             </div>
-            <div style="font-size:11px;color:var(--text3);display:flex;gap:8px;flex-wrap:wrap">
-              <span class="bx b-${r.tipo}" style="margin:0">${r.tipo}</span>
-              <span>${r.pgto||'pix'}${r.parcelas>1&&!isParc?` ${r.parcelas}×`:''}</span>
-              ${r.evento?`<span>Evento: ${fmtD(r.evento)}</span>`:''}
-              ${r.obs?`<span style="color:var(--text3)">${r.obs}</span>`:''}
-            </div>
-          </div>
-          <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
-            <div style="text-align:right">
-              <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px">${fmt(r.valor)}</div>
-              <div style="font-size:10px;color:var(--text3)">total contrato</div>
-            </div>
-            ${r.entrada>0?`<div style="text-align:right"><div style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:13px;color:var(--sage)">${fmt(r.entrada)}</div><div style="font-size:10px;color:var(--text3)">entrada</div></div>`:''}
-            <div style="text-align:right">
-              <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;color:${falta>0?'var(--rust)':'var(--sage)'}">${falta>0?fmt(falta):'✓ quitado'}</div>
-              <div style="font-size:10px;color:var(--text3)">${falta>0?'a receber':'recebido'}</div>
-            </div>
-            <div style="text-align:right;min-width:80px">
-              <div style="font-size:11px;color:var(--text3)">Venc. ${fmtD(r.venc)||'—'}</div>
-              ${r.dt_pagamento?`<div style="font-size:11px;color:var(--sage)">Pago ${fmtD(r.dt_pagamento)}</div>`:''}
-              ${r.comp?`<a href="${r.comp.startsWith('http')?r.comp:'#'}" target="_blank" style="font-size:10px;color:var(--plum)">📎 comprov.</a>`:''}
-            </div>
-            <div style="display:flex;gap:5px;align-items:center">
-              ${r.status!=='pago'&&!isParc?`<button class="btn sm" style="background:var(--sage);color:#fff;border:none;font-size:10px;padding:3px 10px" onclick="mBaixaR(${r.id})">↓ Receber</button>`:''}
-              ${r.status==='pago'&&!isParc?`<span class="bx b-pago">✓ pago</span>`:''}
-              <button class="btn ghost sm" onclick="mReceber(${r.id})">✎</button>
-              <button class="btn ghost sm" onclick="delR(${r.id})">✕</button>
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+              <div style="text-align:right"><div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px">${fmt(valorContrato)}</div><div style="font-size:10px;color:var(--text3)">contrato</div></div>
+              ${valorRecebido>0?`<div style="text-align:right"><div style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:13px;color:var(--sage)">${fmt(valorRecebido)}</div><div style="font-size:10px;color:var(--text3)">recebido</div></div>`:''}
+              <div style="text-align:right"><div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;color:${valorPendente>0?'var(--rust)':'var(--sage)'}">${valorPendente>0?fmt(valorPendente):'✓'}</div><div style="font-size:10px;color:var(--text3)">${valorPendente>0?'a receber':'quitado'}</div></div>
+              <div style="display:flex;gap:5px;align-items:center">
+                ${stBadge}
+                ${isRec?`<button class="btn sm" style="font-size:10px;padding:2px 8px" onclick="mLancarMensalidade(${r.id})">+ Mês</button>`:''}
+                <button class="btn ghost sm" onclick="mReceber(${r.id})">✎</button>
+                <button class="btn ghost sm" onclick="delR(${r.id})">✕</button>
+              </div>
             </div>
           </div>
         </div>
-        ${isParc?`<div style="padding:0 14px 12px;display:grid;gap:4px">
-          ${r.parcelasDatas.map((pc,i)=>`
-            <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:${(pc.pago||r.status==='pago')?'rgba(119,166,122,.08)':'var(--bg3)'}">
-              <span style="font-size:10px;color:var(--text3);min-width:52px">Parc. ${pc.n||i+1}</span>
-              <span style="font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${(pc.pago||r.status==='pago')?'var(--sage)':'var(--rust)'}">${fmt(pc.valor)}</span>
-              <span style="font-size:10px;color:var(--text3);flex:1">${pc.venc?fmtD(pc.venc):'sem data'}</span>
-              ${(pc.pago||r.status==='pago')
-                ?`<span style="font-size:10px;color:var(--sage)">✓ recebido ${pc.dataPagto?fmtD(pc.dataPagto):''}</span>${pc.comp?`<a href="${pc.comp}" target="_blank" style="font-size:10px;color:var(--plum)">📎</a>`:''}`
-                :`<button class="btn sm" style="font-size:10px;padding:2px 8px" onclick="mBaixaR(${r.id},${i})">Receber</button>`}
-            </div>`).join('')}
+        ${pgtos.length>0?`<div style="border-top:1px solid var(--line);padding:0 14px 10px">
+          <table style="width:100%;border-collapse:collapse;margin-top:8px">
+            <thead><tr style="font-size:10px;color:var(--text3)">
+              <th style="font-weight:600;text-align:left;padding:2px 6px 5px 0">Pagamento</th>
+              <th style="font-weight:600;text-align:right;padding:2px 8px 5px">Valor</th>
+              <th style="font-weight:600;text-align:left;padding:2px 6px 5px">Vencimento</th>
+              <th style="font-weight:600;text-align:left;padding:2px 0 5px">Status / Ação</th>
+            </tr></thead>
+            <tbody>${pgtos.map((p,pi)=>{const at=!p.pago&&p.venc&&p.venc<today;return`<tr style="font-size:11px;background:${p.pago?'rgba(119,166,122,.05)':at?'rgba(214,95,79,.04)':''}">
+              <td style="padding:5px 6px 5px 0;color:var(--text2)">${p.desc||`Pgto ${p.n}`}</td>
+              <td style="padding:5px 8px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${p.pago?'var(--sage)':at?'var(--rust)':'var(--text1)'};text-align:right">${fmt(p.valor)}</td>
+              <td style="padding:5px 6px;color:${at?'var(--rust)':'var(--text3)'}">${p.venc?fmtD(p.venc):'—'}</td>
+              <td style="padding:5px 0">${p.pago?`<span style="color:var(--sage);font-size:10px">✓ ${p.dataPagto?fmtD(p.dataPagto):''}</span>${p.comp?` <a href="${p.comp.startsWith('http')?p.comp:'#'}" target="_blank" style="color:var(--plum);font-size:10px">📎</a>`:''}`:`<div style="display:flex;gap:4px;align-items:center">${at?`<span style="font-size:9px;color:var(--rust)">⚠ atraso</span>`:''}${p.concId?`<span style="font-size:9px;background:rgba(119,166,122,.15);color:var(--sage);border-radius:4px;padding:1px 5px">⚡ conc.</span>`:'<button class="btn sm" style="font-size:10px;padding:2px 8px" onclick="mBaixaR('+r.id+','+pi+')">↓ Baixar</button>'}</div>`}</td>
+            </tr>`;}).join('')}</tbody>
+          </table>
         </div>`:''}
       </div>`;
     });
     html+=`</div></div>`;
   });
-  const tG=DB.receber.reduce((s,x)=>s+Number(x.valor),0);
-  const fG=DB.receber.filter(x=>x.status!=='pago').reduce((s,x)=>s+Number(x.falta||x.valor),0);
+  const tG=DB.receber.reduce((s,x)=>s+Number(x.valorContrato||x.valor||0),0);
+  const fG=DB.receber.reduce((s,x)=>{const pg=rGetPgtos(x);return s+pg.filter(p=>!p.pago).reduce((a,p)=>a+p.valor,0);},0);
   html+=`<div style="display:flex;justify-content:space-between;padding:10px 2px;font-size:12px;border-top:1px solid var(--line);font-weight:700"><span>Total geral</span><span>${fmt(tG)} contratado · <span style="color:var(--rust)">${fmt(fG)} a receber</span></span></div>`;
   document.getElementById('content').innerHTML=html;
 }
-function toggleR(id){
+function toggleR(id){const r=DB.receber.find(x=>x.id===id);if(!r)return;r.status=r.status==='pago'?'pendente':'pago';log(`Status: ${r.cliente}→${r.status}`,'status');save();render();}
+function mBaixaR(id,pgtoIdx){
   const r=DB.receber.find(x=>x.id===id);if(!r)return;
-  r.status=r.status==='pago'?'pendente':'pago';
-  if(r.status==='pago'){r.entrada=r.valor;r.falta=0;r.dt_pagamento=today;}
-  else{r.dt_pagamento='';}
-  log(`Status: ${r.cliente} → ${r.status}`,'status');save();render();
-}
-function mBaixaR(id,parcelaIdx){
-  const r=DB.receber.find(x=>x.id===id);if(!r)return;
-  const isParc=parcelaIdx!==undefined&&parcelaIdx!==null;
-  const item=isParc?r.parcelasDatas[parcelaIdx]:r;
-  const valorPendente=isParc?item.valor:Number(r.falta||r.valor);
-  document.getElementById('m-title').textContent=isParc?`Receber parcela ${parcelaIdx+1} — ${r.cliente}`:`Receber — ${r.cliente}`;
+  const pgtos=rGetPgtos(r);
+  const isIdx=pgtoIdx!==undefined&&pgtoIdx!==null;
+  const p=isIdx?pgtos[pgtoIdx]:null;
+  const valPend=isIdx?p.valor:pgtos.filter(x=>!x.pago).reduce((s,x)=>s+x.valor,0);
+  document.getElementById('m-title').textContent=isIdx?`Baixar — ${p.desc||'pagamento'} · ${r.cliente}`:`Receber tudo — ${r.cliente}`;
   document.getElementById('m-body').innerHTML=`
-    <div class="al s" style="margin-bottom:12px">Valor a receber: <strong>${fmt(valorPendente)}</strong>${isParc?` · Parc. ${parcelaIdx+1}/${r.parcelasDatas.length}`:''}</div>
+    <div class="al s" style="margin-bottom:12px">Valor: <strong>${fmt(valPend)}</strong>${isIdx&&p.desc?` · ${p.desc}`:''}</div>
     <div class="fr2">
       <div class="fg"><label class="fl">Data do recebimento</label><input class="inp" type="date" id="mbr-data" value="${today}"></div>
-      <div class="fg"><label class="fl">Valor recebido (R$)</label><input class="inp" type="number" id="mbr-valor" value="${valorPendente}"></div>
+      <div class="fg"><label class="fl">Valor recebido (R$)</label><input class="inp" type="number" id="mbr-valor" value="${valPend}"></div>
     </div>
-    <div class="fg"><label class="fl">Comprovante (link ou nome do arquivo)</label><input class="inp" id="mbr-comp" placeholder="Ex: pix-confirmado.jpg ou drive.google.com/..." value="${item.comp||''}"></div>
+    <div class="fg"><label class="fl">Comprovante (link ou arquivo)</label><input class="inp" id="mbr-comp" placeholder="pix.jpg · drive.google.com/..." value="${p?.comp||''}"></div>
     <div class="fg"><label class="fl">Observação</label><input class="inp" id="mbr-obs" placeholder="Opcional"></div>`;
-  document.getElementById('m-foot').innerHTML=`<button class="btn" onclick="closeMo()">Cancelar</button><button class="btn primary" onclick="saveBaixaR(${id},${isParc?parcelaIdx:'null'})">✓ Confirmar recebimento</button>`;
+  document.getElementById('m-foot').innerHTML=`<button class="btn" onclick="closeMo()">Cancelar</button><button class="btn primary" onclick="saveBaixaR(${id},${isIdx?pgtoIdx:'null'})">✓ Confirmar recebimento</button>`;
   document.getElementById('mo').classList.add('open');
 }
-function saveBaixaR(id,parcelaIdx){
+function saveBaixaR(id,pgtoIdx){
   const r=DB.receber.find(x=>x.id===id);if(!r)return;
   const data=document.getElementById('mbr-data').value;
   const valor=parseFloat(document.getElementById('mbr-valor').value)||0;
   const comp=document.getElementById('mbr-comp').value;
   const obs=document.getElementById('mbr-obs').value;
-  if(parcelaIdx!==null&&parcelaIdx!==undefined){
-    const pc=r.parcelasDatas[parcelaIdx];
-    pc.pago=true;pc.dataPagto=data;pc.comp=comp;if(obs)pc.obs=obs;
-    // Abate no falta
-    r.falta=Math.max(0,(r.falta||r.valor)-pc.valor);
-    r.entrada=(r.valor-r.falta);
-    if(r.parcelasDatas.every(x=>x.pago)){r.status='pago';r.falta=0;r.dt_pagamento=data;}
-    log(`Parcela ${parcelaIdx+1} recebida: ${r.cliente}`,'add');
+  if(!r.pgtos)r.pgtos=rGetPgtos(r);
+  if(pgtoIdx!==null&&pgtoIdx!==undefined){
+    const p=r.pgtos[pgtoIdx];
+    if(p){p.pago=true;p.dataPagto=data;p.comp=comp;if(obs)p.obs=obs;}
   } else {
-    r.pago=true;r.status='pago';r.dt_pagamento=data;r.comp=comp;
-    r.falta=Math.max(0,(r.falta||r.valor)-valor);
-    r.entrada=(r.valor-r.falta);
-    if(r.falta<=0.05){r.falta=0;r.entrada=r.valor;}
-    if(obs)r.obs=(r.obs?r.obs+' · ':'')+obs;
-    log(`Recebimento: ${r.cliente} · ${fmt(valor)} · ${data}`,'add');
+    r.pgtos.filter(p=>!p.pago).forEach(p=>{p.pago=true;p.dataPagto=data;p.comp=comp;});
   }
+  const allPaid=r.pgtos.every(p=>p.pago);
+  const somePaid=r.pgtos.some(p=>p.pago);
+  r.status=allPaid?'pago':(somePaid?'parcial':'pendente');
+  r.falta=r.pgtos.filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+  r.entrada=r.pgtos.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+  if(allPaid)r.dt_pagamento=data;
+  if(obs&&!pgtoIdx)r.obs=(r.obs?r.obs+' · ':'')+obs;
+  log(`Recebimento: ${r.cliente} · ${fmt(valor)} · ${data}`,'add');
   save();closeMo();render();
+}
+function mLancarMensalidade(id){
+  const r=DB.receber.find(x=>x.id===id);if(!r)return;
+  const mes=today.slice(0,7);
+  const dia=r.diaVenc||r.dia||5;
+  const venc=`${mes}-${String(dia).padStart(2,'0')}`;
+  if(!r.pgtos)r.pgtos=rGetPgtos(r);
+  const n=(r.pgtos.length||0)+1;
+  const val=Number(r.valorMensal||r.valorContrato||r.valor||0);
+  r.pgtos.push({n,tipo:'mensal',desc:`Mensalidade ${mLabel(mes)}`,valor:val,venc,pago:false,dataPagto:'',comp:'',concId:''});
+  if(r.status==='pago')r.status='parcial';
+  log(`Mensalidade lançada: ${r.cliente} · ${mLabel(mes)}`,'add');
+  save();render();
 }
 function delR(id){const r=DB.receber.find(x=>x.id===id);if(r&&confirm(`Remover ${r.cliente}?`)){DB.receber=DB.receber.filter(x=>x.id!==id);log(`Removido: ${r.cliente}`,'del');save();render();}}
 
@@ -715,14 +735,20 @@ function rConc(){
   const doneBank=allBank.filter(x=>x.ok);
 
   const allSys=[];
-  DB.receber.forEach(r=>allSys.push({
-    sid:'r'+r.id, tipo:'credito',
-    valor:Number(r.falta||r.valor),       // valor pendente (já abatido parciais)
-    valorTotal:Number(r.valor),            // total original do contrato
-    desc:r.cliente+(r.evento?` — ${r.evento}`:''),
-    data:r.venc||today, concId:r.concId||null, status:r.status,
-    parciais:r.parciais||[], temParcial:(r.parciais||[]).length>0
-  }));
+  // Per-pgto: cada pagamento pendente vira uma linha separada na conciliação
+  DB.receber.forEach(r=>{
+    const pgtos=rGetPgtos(r);
+    pgtos.forEach((p,pi)=>{
+      if(p.pago)return; // já pago manualmente, não aparece
+      allSys.push({
+        sid:`r${r.id}_pt${pi}`,tipo:'credito',
+        valor:p.valor,valorTotal:Number(r.valorContrato||r.valor||0),
+        desc:`${r.cliente}${p.desc&&p.desc!=='Pagamento'?' — '+p.desc:''}`,
+        data:p.venc||today,concId:p.concId||null,pago:false,
+        parciais:[],temParcial:false,rId:r.id,pgtoIdx:pi
+      });
+    });
+  });
   allPagarFlat().forEach(p=>allSys.push({sid:'p'+p.id,tipo:'debito',valor:Number(p.valor),valorTotal:Number(p.valor),desc:p.desc,data:`${p.mes}-${String(p.dia||1).padStart(2,'0')}`,concId:p.concId||null,pago:p.pago,parciais:[],temParcial:false}));
   allSys.sort((a,b)=>a.data.localeCompare(b.data));
 
@@ -944,16 +970,21 @@ function rConc(){
 function selectConc(src,id){
   if(!concSel){concSel={src,id};rConc();return;}
   if(concSel.src===src){concSel={src,id};rConc();return;}
-
   const bankId=src==='bank'?id:concSel.id;
   const sysId=src==='sys'?id:concSel.id;
   const bank=DB.conc.find(x=>x.id===bankId);
   if(!bank){concSel=null;rConc();return;}
 
-  // Busca item do sistema e suas propriedades
+  // Resolve item do sistema
   let sysValor=0,sysTipo='',sysDesc='';
   const sidStr=String(sysId);
-  if(sidStr.startsWith('r')){
+  const ptMatch=sidStr.match(/^r(\d+)_pt(\d+)$/);
+  if(ptMatch){
+    const r=DB.receber.find(x=>x.id===parseInt(ptMatch[1]));
+    const pgtos=r?rGetPgtos(r):[];
+    const p=pgtos[parseInt(ptMatch[2])];
+    if(r&&p){sysValor=p.valor;sysTipo='credito';sysDesc=`${r.cliente}${p.desc&&p.desc!=='Pagamento'?' — '+p.desc:''}`;}
+  } else if(sidStr.startsWith('r')){
     const r=DB.receber.find(x=>x.id===parseInt(sidStr.slice(1)));
     if(r){sysValor=Number(r.falta||r.valor);sysTipo='credito';sysDesc=r.cliente;}
   } else {
@@ -961,45 +992,35 @@ function selectConc(src,id){
     allPagarFlat().forEach(p=>{if(p.id===pid){sysValor=Number(p.valor);sysTipo='debito';sysDesc=p.desc;}});
   }
 
-  // ── Validação 1: tipo deve bater ─────────────────────────────────────────────
-  if(sysTipo && bank.tipo !== sysTipo){
+  // Validação de tipo
+  if(sysTipo&&bank.tipo!==sysTipo){
     alert(`❌ Tipos incompatíveis!\n\nExtrato: ${bank.tipo==='credito'?'Entrada (+)':'Saída (-)'} ${fmt(bank.valor)}\nSistema: ${sysTipo==='credito'?'A receber (+)':'A pagar (-)'} ${fmt(sysValor)}\n\nEntrada só casa com "a receber". Saída só casa com "a pagar".`);
     concSel=null;rConc();return;
   }
 
-  // ── Validação 2: valor — detecta parcial automaticamente ─────────────────────
+  // Validação de valor
   const diff=Math.abs(bank.valor-sysValor);
   if(diff>0.05){
-    // Pagamento parcial: valor do extrato MENOR que o contrato
-    if(sysTipo==='credito' && bank.valor < sysValor){
-      const restante=sysValor-bank.valor;
-      if(!confirm(`💰 Pagamento parcial detectado!\n\nRecebido agora: ${fmt(bank.valor)}\nTotal do contrato: ${fmt(sysValor)}\nRestante após este pagamento: ${fmt(restante)}\n\nAplicar como entrada parcial? O contrato continuará em aberto pelo restante.`)){
-        concSel=null;rConc();return;
-      }
-      // Aplica parcial
-      bank.ok=true;bank.obs=`Parcial: ${sysDesc} (resta ${fmt(restante)})`;
-      const r=DB.receber.find(x=>x.id===parseInt(sidStr.slice(1)));
-      if(r){
-        if(!r.parciais)r.parciais=[];
-        r.parciais.push({bankId,valor:bank.valor,data:bank.data});
-        r.falta=Math.max(0,restante);
-        // Se zerou: quita o contrato
-        if(r.falta<=0.05){r.falta=0;r.status='pago';r.concId=bankId;bank.obs=`Quitado: ${r.cliente}`;}
-      }
-      log(`Pagamento parcial: ${bank.desc} → ${sysDesc}`,'add');
-      save();concSel=null;rConc();return;
-    }
-    // Valor maior que contrato ou saída com valor diferente
     const pct=(diff/Math.max(bank.valor,sysValor)*100).toFixed(1);
-    if(!confirm(`⚠ Valores diferentes!\n\nExtrato: ${fmt(bank.valor)}\nSistema: ${fmt(sysValor)}\nDiferença: ${fmt(diff)} (${pct}%)\n\nDeseja conciliar assim mesmo?`)){
-      concSel=null;rConc();return;
-    }
+    if(!confirm(`⚠ Valores diferentes!\n\nExtrato: ${fmt(bank.valor)}\nSistema: ${fmt(sysValor)}\nDiferença: ${fmt(diff)} (${pct}%)\n\nDeseja conciliar assim mesmo?`)){concSel=null;rConc();return;}
     bank.obs=`Conciliado c/ dif. ${fmt(diff)}`;
   }
 
-  // ── Vincula normalmente (valor bateu ou usuário confirmou) ────────────────────
+  // Vincula
   bank.ok=true;
-  if(sidStr.startsWith('r')){
+  if(ptMatch){
+    const r=DB.receber.find(x=>x.id===parseInt(ptMatch[1]));
+    const pi=parseInt(ptMatch[2]);
+    if(r){
+      if(!r.pgtos)r.pgtos=rGetPgtos(r);
+      const p=r.pgtos[pi];
+      if(p){p.concId=bankId;p.pago=true;p.dataPagto=bank.data;if(!bank.obs)bank.obs=`Conciliado: ${sysDesc}`;}
+      const allPaid=r.pgtos.every(p=>p.pago);
+      r.status=allPaid?'pago':(r.pgtos.some(p=>p.pago)?'parcial':'pendente');
+      r.falta=r.pgtos.filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+      r.entrada=r.pgtos.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+    }
+  } else if(sidStr.startsWith('r')){
     const r=DB.receber.find(x=>x.id===parseInt(sidStr.slice(1)));
     if(r){r.concId=bankId;r.falta=0;r.status='pago';if(!bank.obs)bank.obs=`Conciliado: ${r.cliente}`;}
   } else {
@@ -1010,16 +1031,20 @@ function selectConc(src,id){
   save();concSel=null;rConc();
 }
 function desfazerConc(bankId){
-  const bank=DB.conc.find(x=>x.id===bankId);
-  if(!bank)return;
+  const bank=DB.conc.find(x=>x.id===bankId);if(!bank)return;
   bank.ok=false;bank.obs='';
-  // Desfaz vínculo total
   DB.receber.forEach(r=>{
-    if(r.concId===bankId){delete r.concId;r.status='pendente';r.falta=Number(r.falta||0);}
-    // Desfaz parcial
-    if(r.parciais){
-      const idx=r.parciais.findIndex(p=>p.bankId===bankId);
-      if(idx>=0){r.falta=Number(r.falta||0)+r.parciais[idx].valor;r.parciais.splice(idx,1);}
+    let changed=false;
+    if(r.pgtos){
+      r.pgtos.forEach(p=>{if(p.concId===bankId){delete p.concId;p.pago=false;p.dataPagto='';changed=true;}});
+      if(changed){
+        r.falta=r.pgtos.filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+        r.entrada=r.pgtos.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+        r.status=r.pgtos.every(p=>p.pago)?'pago':(r.pgtos.some(p=>p.pago)?'parcial':'pendente');
+      }
+    } else {
+      if(r.concId===bankId){delete r.concId;r.status='pendente';r.falta=Number(r.valor||0);}
+      if(r.parciais){const idx=r.parciais.findIndex(p=>p.bankId===bankId);if(idx>=0){r.falta+=r.parciais[idx].valor;r.parciais.splice(idx,1);}}
     }
   });
   Object.keys(DB.pagar).forEach(m=>DB.pagar[m].forEach(p=>{if(p.concId===bankId)delete p.concId;}));
@@ -1028,7 +1053,12 @@ function desfazerConc(bankId){
 function limparConc(){
   if(!confirm(`Limpar toda a conciliação?\n\nIsso apaga o extrato importado e desvincula os registros.\nAs contas a receber e a pagar NÃO serão apagadas.`))return;
   DB.conc=[];nC=50;
-  DB.receber.forEach(r=>{delete r.concId;delete r.parciais;r.falta=Number(r.valor);if(r.status==='pago')r.status='pendente';});
+  DB.receber.forEach(r=>{
+    delete r.concId;delete r.parciais;
+    if(r.pgtos){r.pgtos.forEach(p=>{if(p.concId){delete p.concId;}if(!p.dataPagto)p.pago=false;});}
+    if(r.status==='pago'&&!r.pgtos?.some(p=>p.pago))r.status='pendente';
+    r.falta=r.pgtos?r.pgtos.filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0):Number(r.valor||0);
+  });
   Object.keys(DB.pagar).forEach(m=>DB.pagar[m].forEach(p=>delete p.concId));
   log('Conciliação zerada','edit');save();concSel=null;rConc();
 }
@@ -1037,8 +1067,24 @@ function autoConciliar(){
   DB.conc.forEach(bank=>{
     if(bank.ok)return;
     if(bank.tipo==='credito'){
-      const r=DB.receber.find(x=>x.status!=='pago'&&!x.concId&&Math.abs(Number(x.falta||x.valor)-bank.valor)<0.05);
-      if(r){bank.ok=true;bank.obs=`Auto: ${r.cliente}`;r.concId=bank.id;matched++;}
+      let found=false;
+      DB.receber.forEach(r=>{
+        if(found)return;
+        const pgtos=rGetPgtos(r);
+        pgtos.forEach((p,pi)=>{
+          if(found||p.pago||p.concId)return;
+          if(Math.abs(p.valor-bank.valor)<0.05){
+            bank.ok=true;bank.obs=`Auto: ${r.cliente}${p.desc&&p.desc!=='Pagamento'?' — '+p.desc:''}`;
+            if(!r.pgtos)r.pgtos=rGetPgtos(r);
+            r.pgtos[pi].concId=bank.id;r.pgtos[pi].pago=true;r.pgtos[pi].dataPagto=bank.data;
+            const allPaid=r.pgtos.every(p=>p.pago);
+            r.status=allPaid?'pago':(r.pgtos.some(p=>p.pago)?'parcial':'pendente');
+            r.falta=r.pgtos.filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+            r.entrada=r.pgtos.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+            matched++;found=true;
+          }
+        });
+      });
     } else {
       let found=false;
       Object.keys(DB.pagar).forEach(m=>{if(found)return;DB.pagar[m].forEach(p=>{if(found||p.concId)return;if(Math.abs(Number(p.valor)-bank.valor)<0.05){bank.ok=true;bank.obs=`Auto: ${p.desc}`;p.concId=bank.id;matched++;found=true;}});});
@@ -1655,10 +1701,172 @@ function importarDados(){
 }
 
 // ─── MODAIS ───────────────────────────────────────────────────────────────────
+// ─── RECEBER — MODAL (nova estrutura de serviços e formas de pgto) ───────────
+function mRSubTipoHtml(sv,r){
+  const c=r?.subTipo||'';
+  if(sv==='storymaker')return`<select class="inp" id="mr-st"><option value="casamento" ${c==='casamento'?'selected':''}>👰 Casamento</option><option value="festa" ${c==='festa'?'selected':''}>🎉 Festa / Aniversário</option><option value="evento" ${c==='evento'?'selected':''}>📸 Evento</option><option value="corporativo_ev" ${c==='corporativo_ev'?'selected':''}>🏢 Evento corporativo</option><option value="outro" ${c==='outro'?'selected':''}>Outro</option></select>`;
+  if(sv==='corporativo')return`<select class="inp" id="mr-st"><option value="avulso" ${c==='avulso'?'selected':''}>Avulso</option><option value="pacote" ${c==='pacote'?'selected':''}>Pacote</option><option value="projeto" ${c==='projeto'?'selected':''}>Projeto</option></select>`;
+  return`<select class="inp" id="mr-st"><option value="gestao" ${c==='gestao'?'selected':''}>Gestão de perfil</option><option value="conteudo" ${c==='conteudo'?'selected':''}>Criação de conteúdo</option><option value="trafego" ${c==='trafego'?'selected':''}>Tráfego pago</option><option value="pacote" ${c==='pacote'?'selected':''}>Pacote completo</option></select>`;
+}
+function mRenderSubTipo(){
+  const sv=document.getElementById('mr-sv')?.value||'storymaker';
+  const c=document.getElementById('mr-subtipo-cont');if(c)c.innerHTML=`<label class="fl">Tipo</label>`+mRSubTipoHtml(sv,{});
+  const ev=document.getElementById('mr-evrow');if(ev)ev.style.display=sv==='storymaker'?'grid':'none';
+}
+function mRCartaoGrid(np,pgtos){
+  let h=`<div style="display:grid;grid-template-columns:50px 1fr 1fr;gap:5px;margin-top:6px"><span style="font-size:10px;color:var(--text3)">Parc.</span><span style="font-size:10px;color:var(--text3)">Valor (R$)</span><span style="font-size:10px;color:var(--text3)">Vencimento</span>`;
+  for(let i=0;i<np;i++){const p=pgtos?.[i]||{};h+=`<span style="font-size:11px;color:var(--text3)">${i+1}/${np}</span><input class="inp" type="number" id="mr-pv${i}" value="${p.valor||''}" placeholder="R$"><input class="inp" type="date" id="mr-pvenc${i}" value="${p.venc||''}">`;}
+  return h+'</div>';
+}
+function mRSinalGrid(np,vc,perc,pgtos){
+  const vSinal=vc*perc/100;const vRest=vc-vSinal;const vPar=np>0?(vRest/np):vRest;
+  const p0=pgtos?.[0]||{};
+  let h=`<div style="display:grid;grid-template-columns:90px 1fr 1fr;gap:5px;margin-top:6px"><span style="font-size:10px;color:var(--text3)">Tipo</span><span style="font-size:10px;color:var(--text3)">Valor (R$)</span><span style="font-size:10px;color:var(--text3)">Vencimento</span>`;
+  h+=`<span style="font-size:10px;color:var(--plum);font-weight:600">Sinal ${perc}%</span><input class="inp" type="number" id="mr-pv0" value="${vSinal.toFixed(2)}" readonly style="opacity:.65"><input class="inp" type="date" id="mr-pvenc0" value="${p0.venc||''}">`;
+  for(let i=0;i<np;i++){const p=pgtos?.[i+1]||{};h+=`<span style="font-size:10px;color:var(--text3)">Parc. ${i+1}/${np}</span><input class="inp" type="number" id="mr-pv${i+1}" value="${p.valor||vPar.toFixed(2)}" placeholder="R$"><input class="inp" type="date" id="mr-pvenc${i+1}" value="${p.venc||''}">`;}
+  return h+'</div>';
+}
+function mRUpdateSinalGrid(){
+  const vc=parseFloat(document.getElementById('mr-vc')?.value)||0;
+  const perc=parseFloat(document.getElementById('mr-psinal')?.value)||30;
+  const np=parseInt(document.getElementById('mr-np')?.value)||1;
+  const vsEl=document.getElementById('mr-vsinal');if(vsEl)vsEl.value=(vc*perc/100).toFixed(2);
+  const cur=[];for(let i=0;i<=np;i++)cur.push({valor:parseFloat(document.getElementById(`mr-pv${i}`)?.value)||0,venc:document.getElementById(`mr-pvenc${i}`)?.value||''});
+  const el=document.getElementById('mr-pgrid');if(el)el.innerHTML=mRSinalGrid(np,vc,perc,cur);
+}
+function mRUpdateCartaoGrid(){
+  const np=parseInt(document.getElementById('mr-np')?.value)||2;
+  const cur=[];for(let i=0;i<np;i++)cur.push({valor:parseFloat(document.getElementById(`mr-pv${i}`)?.value)||0,venc:document.getElementById(`mr-pvenc${i}`)?.value||''});
+  const el=document.getElementById('mr-pgrid');if(el)el.innerHTML=mRCartaoGrid(np,cur);
+}
+function mRCalcPgtos(){
+  const fp=document.getElementById('mr-fp')?.value||'sinal_parcelado';
+  const vc=parseFloat(document.getElementById('mr-vc')?.value)||0;
+  if(fp==='sinal_parcelado'){
+    const vsEl=document.getElementById('mr-vsinal');const pv0El=document.getElementById('mr-pv0');
+    const perc=parseFloat(document.getElementById('mr-psinal')?.value)||30;
+    if(vsEl)vsEl.value=(vc*perc/100).toFixed(2);if(pv0El)pv0El.value=(vc*perc/100).toFixed(2);
+    return;
+  }
+  const el=document.getElementById('mr-pgtos-form');
+  if(el)el.innerHTML=mRPgtosForm(fp,{valorContrato:vc,formaPgto:fp});
+}
+function mRPgtosForm(fp,r){
+  r=r||{};const vc=Number(r.valorContrato||r.valor||0);const pgtos=r.pgtos||[];
+  if(fp==='avista'){
+    const vf=vc*0.9;
+    return`<div class="al i" style="margin:6px 0 10px;font-size:12px">Com 10% de desconto: <strong style="font-size:15px;color:var(--sage)">${fmt(vf>0?vf:0)}</strong></div>
+      <div class="fr2"><div class="fg"><label class="fl">Data de pagamento</label><input class="inp" type="date" id="mr-pvenc0" value="${pgtos[0]?.venc||''}"></div></div>`;
+  }
+  if(fp==='parcelado_cartao'){
+    const np=pgtos.length||2;
+    return`<div class="fr2"><div class="fg"><label class="fl">Nº de parcelas (2–5)</label><input class="inp" type="number" id="mr-np" min="2" max="5" value="${np}" oninput="mRUpdateCartaoGrid()"></div></div>
+      <div id="mr-pgrid">${mRCartaoGrid(np,pgtos)}</div>`;
+  }
+  if(fp==='sinal_parcelado'){
+    const perc=r.percSinal||30;const vSinal=vc*perc/100;const np=Math.max(1,(pgtos.length||2)-1);
+    return`<div class="fr2"><div class="fg"><label class="fl">% do sinal</label><input class="inp" type="number" id="mr-psinal" min="10" max="99" value="${perc}" oninput="mRUpdateSinalGrid()"></div><div class="fg"><label class="fl">Sinal = R$</label><input class="inp" type="number" id="mr-vsinal" value="${vSinal.toFixed(2)}" readonly style="opacity:.65"></div></div>
+      <div class="fr2"><div class="fg"><label class="fl">Nº parcelas restantes</label><input class="inp" type="number" id="mr-np" min="1" max="4" value="${np}" oninput="mRUpdateSinalGrid()"></div></div>
+      <div id="mr-pgrid">${mRSinalGrid(np,vc,perc,pgtos)}</div>`;
+  }
+  return`<div class="fr2"><div class="fg"><label class="fl">Valor mensal (R$)</label><input class="inp" type="number" id="mr-vmensal" value="${r.valorMensal||vc||''}"></div><div class="fg"><label class="fl">Dia do vencimento</label><input class="inp" type="number" id="mr-dia" min="1" max="28" value="${r.diaVenc||r.dia||''}" placeholder="Ex: 5"></div></div>
+    <div class="fg"><label class="fl">Início da cobrança</label><input class="inp" type="date" id="mr-inicio" value="${r.inicio||''}"></div>`;
+}
+function mReceber(id){
+  const r=id?DB.receber.find(x=>x.id===id):{};
+  const fp=r.formaPgto||(r.recorrente?'recorrente':(r.modalidade==='parcelado'||r.parcelasDatas?.length>0?'sinal_parcelado':'sinal_parcelado'));
+  const sv=r.servico||r.tipo||'storymaker';
+  document.getElementById('m-title').textContent=id?'Editar contrato':'Novo contrato';
+  document.getElementById('m-body').innerHTML=`
+    <div class="fr2">
+      <div class="fg"><label class="fl">Cliente</label><input class="inp" id="mr-c" value="${r.cliente||''}"></div>
+      <div class="fg"><label class="fl">Data de contratação</label><input class="inp" type="date" id="mr-ct" value="${r.dataContratacao||r.contratado||''}"></div>
+    </div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Serviço</label><select class="inp" id="mr-sv" onchange="mRenderSubTipo()"><option value="storymaker" ${sv==='storymaker'?'selected':''}>🎬 Storymaker</option><option value="corporativo" ${sv==='corporativo'?'selected':''}>🏢 Corporativo</option><option value="social_media" ${sv==='social_media'||sv==='social'?'selected':''}>📱 Social Media</option></select></div>
+      <div class="fg" id="mr-subtipo-cont"><label class="fl">Tipo</label>${mRSubTipoHtml(sv,r)}</div>
+    </div>
+    <div class="fr2" id="mr-evrow" style="display:${sv==='storymaker'?'grid':'none'}">
+      <div class="fg"><label class="fl">Data do evento</label><input class="inp" type="date" id="mr-ev" value="${r.dataEvento||r.evento||''}"></div>
+      <div class="fg"><label class="fl">Local</label><input class="inp" id="mr-loc" value="${r.local||''}"></div>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:10px 0">
+    <div class="fr2">
+      <div class="fg"><label class="fl">Valor do contrato (R$)</label><input class="inp" type="number" id="mr-vc" value="${r.valorContrato||r.valor||''}" oninput="mRCalcPgtos()"></div>
+      <div class="fg"><label class="fl">Forma de pagamento</label><select class="inp" id="mr-fp" onchange="mRCalcPgtos()">
+        <option value="avista" ${fp==='avista'?'selected':''}>💵 À vista (10% desc)</option>
+        <option value="parcelado_cartao" ${fp==='parcelado_cartao'?'selected':''}>💳 Parcelado cartão (até 5x c/ taxa)</option>
+        <option value="sinal_parcelado" ${fp==='sinal_parcelado'?'selected':''}>💰 Sinal 30% + parcelamento</option>
+        <option value="recorrente" ${fp==='recorrente'?'selected':''}>🔄 Recorrente (mensal)</option>
+      </select></div>
+    </div>
+    <div id="mr-pgtos-form">${mRPgtosForm(fp,r)}</div>
+    <div class="fg"><label class="fl">Observações</label><textarea class="inp" id="mr-o">${r.obs||''}</textarea></div>`;
+  document.getElementById('m-foot').innerHTML=`<button class="btn" onclick="closeMo()">Cancelar</button><button class="btn primary" onclick="saveR(${id||0})">Salvar</button>`;
+  document.getElementById('mo').classList.add('open');
+}
+function saveR(id){
+  const fp=document.getElementById('mr-fp').value;
+  const sv=document.getElementById('mr-sv').value;
+  const vc=parseFloat(document.getElementById('mr-vc').value)||0;
+  const existente=id?DB.receber.find(x=>x.id===id):{};
+  let pgtos=[],valorFinal=vc;
+  if(fp==='avista'){
+    valorFinal=Math.round(vc*0.9*100)/100;
+    const ex=existente.pgtos?.[0]||{};
+    pgtos=[{n:1,tipo:'avista',desc:'À vista (10% desc)',valor:valorFinal,venc:document.getElementById('mr-pvenc0')?.value||'',pago:ex.pago||false,dataPagto:ex.dataPagto||'',comp:ex.comp||'',concId:ex.concId||''}];
+  } else if(fp==='parcelado_cartao'){
+    const np=parseInt(document.getElementById('mr-np')?.value)||2;
+    for(let i=0;i<np;i++){
+      const ex=existente.pgtos?.[i]||{};
+      pgtos.push({n:i+1,tipo:'parcela',desc:`Parcela ${i+1}/${np}`,valor:parseFloat(document.getElementById(`mr-pv${i}`)?.value)||0,venc:document.getElementById(`mr-pvenc${i}`)?.value||'',pago:ex.pago||false,dataPagto:ex.dataPagto||'',comp:ex.comp||'',concId:ex.concId||''});
+    }
+    valorFinal=pgtos.reduce((s,p)=>s+p.valor,0);
+  } else if(fp==='sinal_parcelado'){
+    const np=parseInt(document.getElementById('mr-np')?.value)||1;
+    const perc=parseFloat(document.getElementById('mr-psinal')?.value)||30;
+    const exAll=existente.pgtos||[];
+    pgtos.push({n:1,tipo:'sinal',desc:`Sinal (${perc}%)`,valor:parseFloat(document.getElementById('mr-pv0')?.value)||vc*perc/100,venc:document.getElementById('mr-pvenc0')?.value||'',pago:exAll[0]?.pago||false,dataPagto:exAll[0]?.dataPagto||'',comp:exAll[0]?.comp||'',concId:exAll[0]?.concId||''});
+    for(let i=0;i<np;i++){
+      const ex=exAll[i+1]||{};
+      pgtos.push({n:i+2,tipo:'parcela',desc:`Parcela ${i+1}/${np}`,valor:parseFloat(document.getElementById(`mr-pv${i+1}`)?.value)||0,venc:document.getElementById(`mr-pvenc${i+1}`)?.value||'',pago:ex.pago||false,dataPagto:ex.dataPagto||'',comp:ex.comp||'',concId:ex.concId||''});
+    }
+    valorFinal=pgtos.reduce((s,p)=>s+p.valor,0);
+  } else {
+    valorFinal=parseFloat(document.getElementById('mr-vmensal')?.value)||vc;
+    pgtos=existente.pgtos||[];
+  }
+  const vRec=pgtos.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+  const vPend=pgtos.filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+  const allPaid=pgtos.length>0&&pgtos.every(p=>p.pago);
+  const somePaid=pgtos.some(p=>p.pago);
+  const obj={
+    cliente:document.getElementById('mr-c').value,
+    servico:sv,tipo:sv,
+    subTipo:document.getElementById('mr-st')?.value||'',
+    formaPgto:fp,recorrente:fp==='recorrente',
+    valorContrato:vc,valorFinal,valor:valorFinal,
+    desconto:fp==='avista'?10:0,
+    percSinal:fp==='sinal_parcelado'?(parseFloat(document.getElementById('mr-psinal')?.value)||30):0,
+    pgtos,
+    dataEvento:document.getElementById('mr-ev')?.value||'',evento:document.getElementById('mr-ev')?.value||'',
+    local:document.getElementById('mr-loc')?.value||'',
+    dataContratacao:document.getElementById('mr-ct')?.value||'',contratado:document.getElementById('mr-ct')?.value||'',
+    valorMensal:fp==='recorrente'?valorFinal:0,
+    diaVenc:fp==='recorrente'?(parseInt(document.getElementById('mr-dia')?.value)||0):0,
+    inicio:fp==='recorrente'?(document.getElementById('mr-inicio')?.value||''):'',
+    obs:document.getElementById('mr-o').value,
+    status:allPaid?'pago':(somePaid?'parcial':'pendente'),
+    falta:vPend,entrada:vRec,
+    venc:pgtos.length>0?(pgtos[pgtos.length-1].venc||''):'',
+  };
+  if(id){const i=DB.receber.findIndex(x=>x.id===id);DB.receber[i]={...DB.receber[i],...obj};log(`Editado: ${obj.cliente}`,'edit');}
+  else{DB.receber.push({id:nR++,...obj});log(`Novo contrato: ${obj.cliente} · ${fmt(valorFinal)}`,'add');}
+  save();closeMo();render();
+}
+// LEGADO — mantido para compatibilidade com registros antigos
 function mReceberParcelasHtml(np,parcelasDatas){
-  let h='';
-  for(let i=0;i<np;i++){const pc=parcelasDatas?.[i]||{};h+=`<div style="display:grid;grid-template-columns:60px 1fr 1fr;gap:6px;align-items:center;margin-bottom:5px"><span style="font-size:11px;color:var(--text3)">Parc. ${i+1}</span><input class="inp" type="number" id="mr-pv${i}" value="${pc.valor||''}" placeholder="R$"><input class="inp" type="date" id="mr-pvenc${i}" value="${pc.venc||''}"></div>`;}
-  return h;
+  let h='';for(let i=0;i<np;i++){const pc=parcelasDatas?.[i]||{};h+=`<div style="display:grid;grid-template-columns:60px 1fr 1fr;gap:6px;align-items:center;margin-bottom:5px"><span style="font-size:11px;color:var(--text3)">Parc. ${i+1}</span><input class="inp" type="number" id="mr-pv${i}" value="${pc.valor||''}" placeholder="R$"><input class="inp" type="date" id="mr-pvenc${i}" value="${pc.venc||''}"></div>`;}return h;
 }
 function mReceberCampos(mod,r){
   r=r||{};
