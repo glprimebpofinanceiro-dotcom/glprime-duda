@@ -662,22 +662,40 @@ function rConc(){
       <div>Cadastre contas a receber e a pagar primeiro,<br>depois importe o extrato para cruzar.</div>
     </div>`;
   } else {
+    // Quando há item do extrato selecionado, calcula compatibilidade de cada registro do sistema
+    let selBankItem=null;
+    if(concSel?.src==='bank') selBankItem=DB.conc.find(x=>x.id===concSel.id);
+
     sysItems.forEach(item=>{
       const isSel=concSel?.src==='sys'&&concSel?.id===item.sid;
       const isConc=!!item.concId;
+
+      // Compatibilidade quando extrato está selecionado
+      let compat='normal'; // 'normal' | 'match' | 'wrong-type' | 'diff-value'
+      if(selBankItem&&!isConc&&!isSel){
+        if(selBankItem.tipo!==item.tipo) compat='wrong-type';
+        else if(Math.abs(selBankItem.valor-item.valor)<=0.05) compat='match';
+        else compat='diff-value';
+      }
+
       const bg=isSel?'background:var(--plum-bg);outline:2px solid var(--plum);outline-offset:-2px;'
+               :compat==='match'?'background:rgba(119,166,122,.14);outline:1px solid var(--sage);outline-offset:-1px;'
+               :compat==='wrong-type'?'opacity:.3;pointer-events:none;'
                :isConc?'background:rgba(119,166,122,.07);':'';
-      const circleColor=isSel?'var(--plum)':isConc?'var(--sage)':'var(--bg4)';
+      const circleColor=isSel?'var(--plum)':compat==='match'?'var(--sage)':isConc?'var(--sage)':'var(--bg4)';
       const statusLabel=item.tipo==='credito'
         ?(item.status==='pago'?'recebido':'a receber')
         :(item.pago?'pago':'a pagar');
+      const matchTag=compat==='match'?`<span style="color:var(--sage);font-weight:700">← valor bate</span>`
+                    :compat==='diff-value'?`<span style="color:var(--gold)">dif. ${fmt(Math.abs(selBankItem.valor-item.valor))}</span>`:'';
       html+=`<div onclick="selectConc('sys','${item.sid}')" style="${bg}display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--bg3);cursor:pointer">
         <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${circleColor};display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;color:${circleColor}">${isConc?'✓':isSel?'◉':''}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${item.desc}">${item.desc}</div>
-          <div style="font-size:10px;color:var(--text3);display:flex;gap:5px">
+          <div style="font-size:10px;color:var(--text3);display:flex;gap:5px;flex-wrap:wrap">
             <span>${fmtD(item.data)}</span><span>·</span>
             <span style="color:${item.tipo==='credito'?'var(--sage)':'var(--rust)'}">${statusLabel}</span>
+            ${matchTag?`<span>·</span>${matchTag}`:''}
           </div>
         </div>
         <div style="font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;color:${item.tipo==='credito'?'var(--sage)':'var(--rust)'};white-space:nowrap;flex-shrink:0">${item.tipo==='credito'?'+':'-'}${fmt(item.valor)}</div>
@@ -691,20 +709,51 @@ function rConc(){
 function selectConc(src,id){
   if(!concSel){concSel={src,id};rConc();return;}
   if(concSel.src===src){concSel={src,id};rConc();return;}
+
   const bankId=src==='bank'?id:concSel.id;
   const sysId=src==='sys'?id:concSel.id;
   const bank=DB.conc.find(x=>x.id===bankId);
   if(!bank){concSel=null;rConc();return;}
-  bank.ok=true;
+
+  // Busca item do sistema e suas propriedades
+  let sysValor=0,sysTipo='',sysDesc='';
   const sidStr=String(sysId);
   if(sidStr.startsWith('r')){
     const r=DB.receber.find(x=>x.id===parseInt(sidStr.slice(1)));
-    if(r){r.concId=bankId;bank.obs=`Conciliado: ${r.cliente}`;}
-  } else if(sidStr.startsWith('p')){
+    if(r){sysValor=Number(r.falta||r.valor);sysTipo='credito';sysDesc=r.cliente;}
+  } else {
     const pid=parseInt(sidStr.slice(1));
-    Object.keys(DB.pagar).forEach(m=>DB.pagar[m].forEach(p=>{if(p.id===pid){p.concId=bankId;bank.obs=`Conciliado: ${p.desc}`;}}));
+    allPagarFlat().forEach(p=>{if(p.id===pid){sysValor=Number(p.valor);sysTipo='debito';sysDesc=p.desc;}});
   }
-  log(`Conciliação: ${bank.desc}`,'add');save();concSel=null;rConc();
+
+  // ── Validação 1: tipo deve bater ─────────────────────────────────────────────
+  // entrada(+) só casa com "a receber"; saída(-) só casa com "a pagar"
+  if(sysTipo && bank.tipo !== sysTipo){
+    alert(`❌ Tipos incompatíveis!\n\nExtrato: ${bank.tipo==='credito'?'Entrada (+)':'Saída (-)'} ${fmt(bank.valor)}\nSistema: ${sysTipo==='credito'?'A receber (+)':'A pagar (-)'} ${fmt(sysValor)}\n\nEntrada do extrato só pode ser conciliada com "a receber".\nSaída do extrato só pode ser conciliada com "a pagar".`);
+    concSel=null;rConc();return;
+  }
+
+  // ── Validação 2: valor deve ser igual (tolerância R$0,05) ────────────────────
+  const diff=Math.abs(bank.valor-sysValor);
+  if(diff>0.05){
+    const pct=(diff/Math.max(bank.valor,sysValor)*100).toFixed(1);
+    if(!confirm(`⚠ Valores diferentes!\n\nExtrato: ${fmt(bank.valor)}\nSistema: ${fmt(sysValor)}\nDiferença: ${fmt(diff)} (${pct}%)\n\nGeralmente isso indica registros distintos.\nDeseja conciliar assim mesmo?`)){
+      concSel=null;rConc();return;
+    }
+    bank.obs=`Conciliado c/ dif. ${fmt(diff)}`;
+  }
+
+  // ── Vincula ──────────────────────────────────────────────────────────────────
+  bank.ok=true;
+  if(sidStr.startsWith('r')){
+    const r=DB.receber.find(x=>x.id===parseInt(sidStr.slice(1)));
+    if(r){r.concId=bankId;if(!bank.obs)bank.obs=`Conciliado: ${r.cliente}`;}
+  } else {
+    const pid=parseInt(sidStr.slice(1));
+    Object.keys(DB.pagar).forEach(m=>DB.pagar[m].forEach(p=>{if(p.id===pid){p.concId=bankId;if(!bank.obs)bank.obs=`Conciliado: ${p.desc}`;}}));
+  }
+  log(`Conciliação: ${bank.desc} ↔ ${fmt(bank.valor)}`,'add');
+  save();concSel=null;rConc();
 }
 function autoConciliar(){
   let matched=0;
