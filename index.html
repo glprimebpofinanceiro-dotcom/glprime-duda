@@ -354,6 +354,7 @@ let concSel=null;
 let concShowDone=false;
 let concFiltMes='todos';
 let concFiltTipo='todos';
+let concFiltDone='todos';
 
 async function load(){
   try{const r=await S.get('glprime_v5');if(r?.value){const d=JSON.parse(r.value);DB=d.DB;nR=d.nR;nP=d.nP;nC=d.nC;nPl=d.nPl;}}catch(e){}
@@ -737,34 +738,55 @@ function rConc(){
 
   // ─── SEÇÃO CONCILIADOS (recolhível) ──────────────────────────────────────────
   if(doneBank.length>0){
+    const mesesDone=[...new Set(doneBank.map(x=>x.data.substring(0,7)).filter(Boolean))].sort();
+    const doneFilt=doneBank.filter(x=>concFiltDone==='todos'||x.data.startsWith(concFiltDone));
+    const tDoneCr=doneFilt.filter(x=>x.tipo==='credito').reduce((s,x)=>s+x.valor,0);
+    const tDoneDb=doneFilt.filter(x=>x.tipo==='debito').reduce((s,x)=>s+x.valor,0);
+
     html+=`<div class="card" style="margin-top:4px">
-      <div class="ch" onclick="concShowDone=!concShowDone;rConc()" style="cursor:pointer;user-select:none">
-        <span class="ct">✓ Conciliados (${doneBank.length})</span>
-        <span style="font-size:11px;color:var(--text3)">${concShowDone?'▲ recolher':'▼ expandir'} · clique para ${concShowDone?'ocultar':'ver'}</span>
+      <div class="ch" style="flex-direction:column;align-items:stretch;gap:8px;padding-bottom:${concShowDone?'10px':'14px'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="concShowDone=!concShowDone;rConc()">
+          <span class="ct">✓ Conciliados (${doneBank.length})</span>
+          <span style="font-size:11px;color:var(--text3)">${concShowDone?'▲ recolher':'▼ expandir'}</span>
+        </div>
+        ${concShowDone?`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <select style="flex:1;min-width:110px;font-size:11px;padding:4px 6px;border:1px solid var(--bg4);border-radius:6px;background:var(--bg2);color:var(--text2);cursor:pointer" onchange="concFiltDone=this.value;rConc()">
+            <option value="todos" ${concFiltDone==='todos'?'selected':''}>📅 Todos os meses</option>
+            ${mesesDone.map(m=>`<option value="${m}" ${concFiltDone===m?'selected':''}>${mLabel(m)}</option>`).join('')}
+          </select>
+          <span style="font-size:11px;color:var(--text3);white-space:nowrap">
+            ${concFiltDone!=='todos'?`${doneFilt.length} itens · `:''}
+            <span style="color:var(--sage)">+${fmt(tDoneCr)}</span> / <span style="color:var(--rust)">-${fmt(tDoneDb)}</span>
+          </span>
+          ${concFiltDone!=='todos'?`<button class="btn ghost sm" onclick="concFiltDone='todos';rConc()" style="font-size:10px">✕</button>`:''}
+        </div>`:''}
       </div>`;
     if(concShowDone){
       html+=`<div style="padding:0">`;
-      doneBank.forEach(bank=>{
-        const linked=allSys.find(s=>s.concId===bank.id);
-        const sysLabel=linked?linked.desc:'(sem vínculo no sistema)';
-        const sysVal=linked?`${linked.tipo==='credito'?'+':'-'}${fmt(linked.valor)}`:'';
-        html+=`<div style="display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--bg3)">
-          <div style="width:18px;height:18px;border-radius:50%;background:var(--sage);display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;flex-shrink:0">✓</div>
-          <div style="flex:1;min-width:0;display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center">
-            <div style="min-width:0">
-              <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${bank.desc}">${bank.desc}</div>
-              <div style="font-size:10px;color:var(--text3)">${fmtD(bank.data)} · extrato</div>
+      if(!doneFilt.length){
+        html+=`<div style="padding:16px;text-align:center;color:var(--text3);font-size:12px">Nenhum conciliado neste mês.</div>`;
+      } else {
+        doneFilt.forEach(bank=>{
+          const linked=allSys.find(s=>s.concId===bank.id);
+          const sysLabel=linked?linked.desc:'(sem vínculo no sistema)';
+          html+=`<div style="display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--bg3)">
+            <div style="width:18px;height:18px;border-radius:50%;background:var(--sage);display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;flex-shrink:0">✓</div>
+            <div style="flex:1;min-width:0;display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center">
+              <div style="min-width:0">
+                <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${bank.desc}">${bank.desc}</div>
+                <div style="font-size:10px;color:var(--text3)">${fmtD(bank.data)} · extrato</div>
+              </div>
+              <div style="font-size:14px;color:var(--text3)">↔</div>
+              <div style="min-width:0">
+                <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${sysLabel}">${sysLabel}</div>
+                <div style="font-size:10px;color:var(--text3)">${linked?fmtD(linked.data)+' · sistema':''}</div>
+              </div>
             </div>
-            <div style="font-size:14px;color:var(--text3)">↔</div>
-            <div style="min-width:0">
-              <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${sysLabel}">${sysLabel}</div>
-              <div style="font-size:10px;color:var(--text3)">${linked?fmtD(linked.data)+' · sistema':''}</div>
-            </div>
-          </div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${bank.tipo==='credito'?'var(--sage)':'var(--rust)'};white-space:nowrap;flex-shrink:0">${bank.tipo==='credito'?'+':'-'}${fmt(bank.valor)}</div>
-          <button class="btn ghost sm" onclick="desfazerConc(${bank.id})" style="flex-shrink:0;color:var(--rust);border-color:var(--rust-dim)" title="Desfazer esta conciliação">↩ Desfazer</button>
-        </div>`;
-      });
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${bank.tipo==='credito'?'var(--sage)':'var(--rust)'};white-space:nowrap;flex-shrink:0">${bank.tipo==='credito'?'+':'-'}${fmt(bank.valor)}</div>
+            <button class="btn ghost sm" onclick="desfazerConc(${bank.id})" style="flex-shrink:0;color:var(--rust);border-color:var(--rust-dim)">↩ Desfazer</button>
+          </div>`;
+        });
+      }
       html+=`</div>`;
     }
     html+=`</div>`;
