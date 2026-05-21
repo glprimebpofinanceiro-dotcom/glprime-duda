@@ -352,6 +352,8 @@ let filtMes='todos',filtTipo='todos';
 let pagarMesSel='2026-05';
 let concSel=null;
 let concShowDone=false;
+let concFiltMes='todos';
+let concFiltTipo='todos';
 
 async function load(){
   try{const r=await S.get('glprime_v5');if(r?.value){const d=JSON.parse(r.value);DB=d.DB;nR=d.nR;nP=d.nP;nC=d.nC;nPl=d.nPl;}}catch(e){}
@@ -590,8 +592,18 @@ function rConc(){
   const allSys=[];
   DB.receber.forEach(r=>allSys.push({sid:'r'+r.id,tipo:'credito',valor:Number(r.falta||r.valor),desc:r.cliente+(r.evento?` — ${r.evento}`:''),data:r.venc||today,concId:r.concId||null,status:r.status}));
   allPagarFlat().forEach(p=>allSys.push({sid:'p'+p.id,tipo:'debito',valor:Number(p.valor),desc:p.desc,data:`${p.mes}-${String(p.dia||1).padStart(2,'0')}`,concId:p.concId||null,pago:p.pago}));
-  allSys.sort((a,b)=>b.data.localeCompare(a.data));
-  const pendSys=allSys.filter(x=>!x.concId);
+  allSys.sort((a,b)=>a.data.localeCompare(b.data));
+
+  // Meses disponíveis nos registros do sistema
+  const mesesSys=[...new Set(allSys.map(x=>x.data.substring(0,7)).filter(Boolean))].sort();
+
+  // Aplica filtros
+  const pendSysAll=allSys.filter(x=>!x.concId);
+  const pendSys=pendSysAll.filter(x=>{
+    if(concFiltTipo!=='todos'&&x.tipo!==concFiltTipo)return false;
+    if(concFiltMes!=='todos'&&!x.data.startsWith(concFiltMes))return false;
+    return true;
+  });
 
   // ─── KPIs ─────────────────────────────────────────────────────────────────────
   const tCr=allBank.filter(x=>x.tipo==='credito').reduce((s,x)=>s+x.valor,0);
@@ -694,9 +706,28 @@ function rConc(){
     }
     html+=`</div></div>
       <div class="card">
-        <div class="ch"><span class="ct">Sistema — pendentes</span><span style="font-size:11px;color:var(--text3)">${pendSys.length}</span></div>
+        <div class="ch" style="flex-direction:column;align-items:stretch;gap:8px;padding-bottom:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span class="ct">Sistema — pendentes</span>
+            <span style="font-size:11px;color:var(--text3)">${pendSys.length}${concFiltMes!=='todos'||concFiltTipo!=='todos'?' filtrado':''}/${pendSysAll.length}</span>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <select style="flex:1;min-width:100px;font-size:11px;padding:4px 6px;border:1px solid var(--bg4);border-radius:6px;background:var(--bg2);color:var(--text2);cursor:pointer" onchange="concFiltMes=this.value;rConc()">
+              <option value="todos" ${concFiltMes==='todos'?'selected':''}>📅 Todos os meses</option>
+              ${mesesSys.map(m=>`<option value="${m}" ${concFiltMes===m?'selected':''}>${mLabel(m)}</option>`).join('')}
+            </select>
+            <select style="font-size:11px;padding:4px 6px;border:1px solid var(--bg4);border-radius:6px;background:var(--bg2);color:var(--text2);cursor:pointer" onchange="concFiltTipo=this.value;rConc()">
+              <option value="todos" ${concFiltTipo==='todos'?'selected':''}>Todos</option>
+              <option value="credito" ${concFiltTipo==='credito'?'selected':''}>↑ A receber</option>
+              <option value="debito" ${concFiltTipo==='debito'?'selected':''}>↓ A pagar</option>
+            </select>
+            ${concFiltMes!=='todos'||concFiltTipo!=='todos'?`<button class="btn ghost sm" onclick="concFiltMes='todos';concFiltTipo='todos';rConc()" style="font-size:10px">✕ Limpar filtro</button>`:''}
+          </div>
+        </div>
         <div style="padding:0">`;
-    if(!pendSys.length){
+    if(!pendSys.length&&pendSysAll.length>0){
+      html+=`<div style="padding:20px;text-align:center;color:var(--text3);font-size:12px">Nenhum registro neste filtro.<br><button class="btn ghost sm" style="margin-top:8px" onclick="concFiltMes='todos';concFiltTipo='todos';rConc()">Ver todos</button></div>`;
+    } else if(!pendSys.length){
       html+=`<div style="padding:20px;text-align:center;color:var(--sage);font-size:12px">✅ Todos os registros conciliados</div>`;
     } else {
       pendSys.forEach(item=>{html+=rowSys(item);});
