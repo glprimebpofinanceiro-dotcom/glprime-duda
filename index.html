@@ -388,7 +388,6 @@ async function load(){
   document.getElementById('tb-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
   render();
 }
-}
 async function save(){try{await S.set('glprime_v5',JSON.stringify({DB,nR,nP,nC,nPl}));}catch(e){}}
 function log(msg,tipo='info'){DB.hist.unshift({ts:nowStr(),msg,tipo});if(DB.hist.length>300)DB.hist.pop();save();}
 
