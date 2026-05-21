@@ -363,6 +363,7 @@ async function load(){
     const arr=DB.pagar;DB.pagar={'2026-05':arr};
   }
   document.getElementById('tb-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+  autoGerarRecorrentes(true); // gera mensalidades pendentes ao abrir o sistema
   render();
 }
 async function save(){try{await S.set('glprime_v5',JSON.stringify({DB,nR,nP,nC,nPl}));}catch(e){}}
@@ -389,6 +390,45 @@ function rGetPgtos(r){
   if(r.parcelasDatas&&r.parcelasDatas.length>0)return r.parcelasDatas.map((p,i)=>({n:p.n||i+1,tipo:'parcela',desc:`Parcela ${p.n||i+1}`,valor:Number(p.valor||0),venc:p.venc||'',pago:p.pago||false,dataPagto:p.dataPagto||'',comp:p.comp||'',concId:''}));
   const pago=r.status==='pago';
   return [{n:1,tipo:'pagamento',desc:'Pagamento',valor:Number(r.valor||0),venc:r.venc||'',pago,dataPagto:r.dt_pagamento||'',comp:r.comp||'',concId:r.concId||''}];
+}
+// Gera mensalidades automáticas para contratos recorrentes (até 2 meses à frente)
+function autoGerarRecorrentes(salvar){
+  const hoje=new Date(today);
+  const limAno=hoje.getFullYear();
+  const limMes=hoje.getMonth()+2; // 2 meses à frente
+  let mudou=false;
+  DB.receber.forEach(r=>{
+    if(r.formaPgto!=='recorrente'&&!r.recorrente)return;
+    const inicio=r.inicio||r.dataContratacao||r.contratado||today;
+    if(!inicio)return;
+    if(!r.pgtos)r.pgtos=[];
+    const dia=r.diaVenc||r.dia||5;
+    const val=Number(r.valorMensal||r.valorContrato||r.valor||0);
+    let cur=new Date(inicio.slice(0,7)+'-01'); // começa no mês de início
+    const limite=new Date(limAno,limMes,1);
+    while(cur<limite){
+      const ano=cur.getFullYear();
+      const mes=String(cur.getMonth()+1).padStart(2,'0');
+      const mesKey=`${ano}-${mes}`;
+      const diaMax=new Date(ano,cur.getMonth()+1,0).getDate();
+      const venc=`${mesKey}-${String(Math.min(dia,diaMax)).padStart(2,'0')}`;
+      // Só adiciona se este mês ainda não existe
+      if(!r.pgtos.some(p=>p.venc&&p.venc.startsWith(mesKey))){
+        r.pgtos.push({n:r.pgtos.length+1,tipo:'mensal',desc:`Mensalidade ${mLabel(mesKey)}`,valor:val,venc,pago:false,dataPagto:'',comp:'',concId:''});
+        mudou=true;
+      }
+      cur.setMonth(cur.getMonth()+1);
+    }
+    // Recalcula status
+    if(r.pgtos.length>0){
+      const allPaid=r.pgtos.every(p=>p.pago);const somePaid=r.pgtos.some(p=>p.pago);
+      r.status=allPaid?'pago':(somePaid?'parcial':'pendente');
+      r.falta=r.pgtos.filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
+      r.entrada=r.pgtos.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
+    }
+  });
+  if(mudou&&salvar)save();
+  return mudou;
 }
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
@@ -1739,6 +1779,19 @@ function mRUpdateCartaoGrid(){
   const cur=[];for(let i=0;i<np;i++)cur.push({valor:parseFloat(document.getElementById(`mr-pv${i}`)?.value)||0,venc:document.getElementById(`mr-pvenc${i}`)?.value||''});
   const el=document.getElementById('mr-pgrid');if(el)el.innerHTML=mRCartaoGrid(np,cur);
 }
+function mRAutoFillDatas(modo){
+  const startEl=document.getElementById('mr-pstart');
+  if(!startEl?.value){alert('Informe a data da 1ª parcela para auto-calcular.');return;}
+  const start=new Date(startEl.value+'T12:00:00');
+  const np=parseInt(document.getElementById('mr-np')?.value)||2;
+  const offset=modo==='sinal'?1:0; // sinal ocupa índice 0
+  for(let i=0;i<np;i++){
+    const d=new Date(start);d.setMonth(d.getMonth()+i);
+    const venc=d.toISOString().slice(0,10);
+    const el=document.getElementById(`mr-pvenc${i+offset}`);
+    if(el)el.value=venc;
+  }
+}
 function mRCalcPgtos(){
   const fp=document.getElementById('mr-fp')?.value||'sinal_parcelado';
   const vc=parseFloat(document.getElementById('mr-vc')?.value)||0;
@@ -1760,13 +1813,13 @@ function mRPgtosForm(fp,r){
   }
   if(fp==='parcelado_cartao'){
     const np=pgtos.length||2;
-    return`<div class="fr2"><div class="fg"><label class="fl">Nº de parcelas (2–5)</label><input class="inp" type="number" id="mr-np" min="2" max="5" value="${np}" oninput="mRUpdateCartaoGrid()"></div></div>
+    return`<div class="fr2"><div class="fg"><label class="fl">Nº de parcelas (2–5)</label><input class="inp" type="number" id="mr-np" min="2" max="5" value="${np}" oninput="mRUpdateCartaoGrid()"></div><div class="fg"><label class="fl">1ª parcela em</label><input class="inp" type="date" id="mr-pstart" value="${pgtos[0]?.venc||''}"><button class="btn sm" style="margin-top:4px;width:100%;font-size:10px" onclick="mRAutoFillDatas('cartao')">↻ Auto-calcular datas mensais</button></div></div>
       <div id="mr-pgrid">${mRCartaoGrid(np,pgtos)}</div>`;
   }
   if(fp==='sinal_parcelado'){
     const perc=r.percSinal||30;const vSinal=vc*perc/100;const np=Math.max(1,(pgtos.length||2)-1);
     return`<div class="fr2"><div class="fg"><label class="fl">% do sinal</label><input class="inp" type="number" id="mr-psinal" min="10" max="99" value="${perc}" oninput="mRUpdateSinalGrid()"></div><div class="fg"><label class="fl">Sinal = R$</label><input class="inp" type="number" id="mr-vsinal" value="${vSinal.toFixed(2)}" readonly style="opacity:.65"></div></div>
-      <div class="fr2"><div class="fg"><label class="fl">Nº parcelas restantes</label><input class="inp" type="number" id="mr-np" min="1" max="4" value="${np}" oninput="mRUpdateSinalGrid()"></div></div>
+      <div class="fr2"><div class="fg"><label class="fl">Nº parcelas restantes</label><input class="inp" type="number" id="mr-np" min="1" max="4" value="${np}" oninput="mRUpdateSinalGrid()"></div><div class="fg"><label class="fl">1ª parcela restante em</label><input class="inp" type="date" id="mr-pstart" value="${pgtos[1]?.venc||''}"><button class="btn sm" style="margin-top:4px;width:100%;font-size:10px" onclick="mRAutoFillDatas('sinal')">↻ Auto-calcular datas mensais</button></div></div>
       <div id="mr-pgrid">${mRSinalGrid(np,vc,perc,pgtos)}</div>`;
   }
   return`<div class="fr2"><div class="fg"><label class="fl">Valor mensal (R$)</label><input class="inp" type="number" id="mr-vmensal" value="${r.valorMensal||vc||''}"></div><div class="fg"><label class="fl">Dia do vencimento</label><input class="inp" type="number" id="mr-dia" min="1" max="28" value="${r.diaVenc||r.dia||''}" placeholder="Ex: 5"></div></div>
@@ -1834,7 +1887,7 @@ function saveR(id){
     valorFinal=pgtos.reduce((s,p)=>s+p.valor,0);
   } else {
     valorFinal=parseFloat(document.getElementById('mr-vmensal')?.value)||vc;
-    pgtos=existente.pgtos||[];
+    pgtos=existente.pgtos||[]; // mensalidades geradas automaticamente por autoGerarRecorrentes
   }
   const vRec=pgtos.filter(p=>p.pago).reduce((s,p)=>s+p.valor,0);
   const vPend=pgtos.filter(p=>!p.pago).reduce((s,p)=>s+p.valor,0);
@@ -1862,6 +1915,7 @@ function saveR(id){
   };
   if(id){const i=DB.receber.findIndex(x=>x.id===id);DB.receber[i]={...DB.receber[i],...obj};log(`Editado: ${obj.cliente}`,'edit');}
   else{DB.receber.push({id:nR++,...obj});log(`Novo contrato: ${obj.cliente} · ${fmt(valorFinal)}`,'add');}
+  if(fp==='recorrente')autoGerarRecorrentes(false); // gera mensalidades do contrato recém-salvo
   save();closeMo();render();
 }
 // LEGADO — mantido para compatibilidade com registros antigos
