@@ -309,8 +309,8 @@ const SB_URL='https://vsbbiyttpnnrnurkklnq.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzYmJpeXR0cG5ucm51cmtrbG5xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2ODI3MTQsImV4cCI6MjA5NDI1ODcxNH0.rovwMegUXYw-K63-nq6vL3a7m6HiCHAum3BDbiLIJyQ';
 const SB_H={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
 const S={
-  get:async k=>{try{const r=await fetch(${SB_URL}/rest/v1/glprime_dados?id=eq.duda&select=dados,{headers:SB_H});if(r.ok){const d=await r.json();if(d[0]?.dados)return{value:JSON.stringify(d[0].dados)};}}catch{}try{const v=localStorage.getItem(k);return v?{value:v}:null;}catch{return null;}},
-  set:async(k,v)=>{try{localStorage.setItem(k,v);}catch{}try{await fetch(${SB_URL}/rest/v1/glprime_dados?id=eq.duda,{method:'PATCH',headers:{...SB_H,'Prefer':'return=minimal'},body:JSON.stringify({dados:JSON.parse(v)})});}catch{}}
+  get:async k=>{try{const r=await fetch(`${SB_URL}/rest/v1/glprime_dados?id=eq.duda&select=dados`,{headers:SB_H});if(r.ok){const d=await r.json();if(d[0]?.dados)return{value:JSON.stringify(d[0].dados)};}}catch{}try{const v=localStorage.getItem(k);return v?{value:v}:null;}catch{return null;}},
+  set:async(k,v)=>{try{localStorage.setItem(k,v);}catch{}try{await fetch(`${SB_URL}/rest/v1/glprime_dados?id=eq.duda`,{method:'PATCH',headers:{...SB_H,'Prefer':'return=minimal'},body:JSON.stringify({dados:JSON.parse(v)})});}catch{}}
 };
 const fmt=v=>'R$\u00a0'+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtK=v=>{const n=Number(v||0);return Math.abs(n)>=1000?'R$\u00a0'+(n/1000).toFixed(1)+'k':fmt(n)};
@@ -615,6 +615,8 @@ function rConc(){
   document.getElementById('content').innerHTML=html;
 }
 async function rodarIA(){
+  let key=localStorage.getItem('gl_ai_key');
+  if(!key){key=prompt('Cole sua chave da API Anthropic (começa com sk-ant-):');if(!key)return;localStorage.setItem('gl_ai_key',key);}
   const el=document.getElementById('content');const div=document.createElement('div');
   div.className='ai-thinking';div.innerHTML='<div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span>Claude analisando lançamentos...</span>';
   el.prepend(div);
@@ -623,7 +625,8 @@ async function rodarIA(){
   const tDb=DB.conc.filter(x=>x.tipo==='debito').reduce((s,x)=>s+Number(x.valor),0);
   const resumo=DB.conc.slice(0,20).map(c=>`${c.data}|${c.tipo==='credito'?'+':'-'}${c.valor}|${c.desc}|${c.cat}|inc:${c.inc}`).join('\n');
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:`Analista financeira GL Prime BPO. Analise este extrato de uma Storymaker (eventos/casamentos) em Ourinhos SP. Seja direta, sem introdução.\n\nEntradas: R$${tCr.toFixed(2)} · Saídas: R$${tDb.toFixed(2)} · Pessoal no CNPJ: R$${tPF.toFixed(2)}\n\nLançamentos (primeiros 20):\n${resumo}\n\nEm até 180 palavras:\n1. Diagnóstico (2 linhas)\n2. Problemas críticos (lista 3-4 itens)\n3. Próxima ação imediata`}]})});
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:`Analista financeira GL Prime BPO. Analise este extrato de uma Storymaker (eventos/casamentos) em Ourinhos SP. Seja direta, sem introdução.\n\nEntradas: R$${tCr.toFixed(2)} · Saídas: R$${tDb.toFixed(2)} · Pessoal no CNPJ: R$${tPF.toFixed(2)}\n\nLançamentos (primeiros 20):\n${resumo}\n\nEm até 180 palavras:\n1. Diagnóstico (2 linhas)\n2. Problemas críticos (lista 3-4 itens)\n3. Próxima ação imediata`}]})});
+    if(res.status===401){localStorage.removeItem('gl_ai_key');div.innerHTML='<span style="color:var(--rust)">Chave inválida. Recarregue e tente novamente.</span>';return;}
     const data=await res.json();const txt=data.content?.filter(x=>x.type==='text').map(x=>x.text).join('')||'Análise indisponível.';
     div.style.cssText='background:var(--plum-bg);border:1px solid var(--plum-dim);border-radius:var(--r);padding:14px;margin-bottom:14px;display:block';
     div.innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--plum);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">✦ Análise GL Prime IA</div><div style="font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-wrap">${txt}</div>`;
@@ -632,27 +635,41 @@ async function rodarIA(){
 }
 function evDrag(e){e.preventDefault();}
 function dropFile(e){e.preventDefault();handleFile(e.dataTransfer?.files[0]);}
+function parseCSVLine(l){const res=[];let cur='',inQ=false;for(let i=0;i<l.length;i++){if(l[i]==='"'){inQ=!inQ;}else if(l[i]===','&&!inQ){res.push(cur.trim());cur='';}else{cur+=l[i];}}res.push(cur.trim());return res;}
 function handleFile(f){
   if(!f)return;const r=new FileReader();
   r.onload=e=>{
-    const lines=e.target.result.split('\n').filter(l=>l.trim()&&l.includes(','));
-    let added=0,incs=0;
+    const lines=e.target.result.split('\n').filter(l=>l.trim());
+    let added=0,incs=0,matched=0;
+    const parseDate=d=>{const m=d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);return m?`${m[3]}-${m[2]}-${m[1]}`:d;};
+    const allPag=allPagarFlat();
     lines.forEach(line=>{
-      const c=line.split(',').map(x=>x.trim().replace(/"/g,''));if(c.length<3)return;
-      const [data,desc,...rest]=c;const val=parseFloat(rest.find(x=>!isNaN(parseFloat(x.replace(',','.'))))||0);
-      if(!data||!desc||!val)return;
-      const dl=desc.toLowerCase();let cat='operacional',inc=false;
-      if(dl.includes('gmac')||dl.includes('consórcio'))cat='fixo';
-      else if(dl.includes('renner')||dl.includes('salão')||dl.includes('cinema')||dl.includes('beleza')||dl.includes('supermercado')){cat='pessoal';inc=true;incs++;}
-      else if(dl.includes('ads')||dl.includes('facebook'))cat='marketing';
-      else if(dl.includes('english')||dl.includes('inglês')||dl.includes('midway')){cat='pessoal';inc=true;incs++;}
-      const isDb=val<0||rest.some(x=>x.toLowerCase().includes('deb'));
-      DB.conc.push({id:nC++,data:data||today,desc,valor:Math.abs(val),tipo:isDb?'debito':'credito',banco:'importado',cat,ok:!inc,inc,obs:inc?'Detectado como inconsistência':''});added++;
+      const c=parseCSVLine(line);if(c.length<2)return;
+      if(c[0].toLowerCase()==='data'||c[1].toLowerCase()==='valor')return;
+      let data,desc,val;
+      if(c.length>=4&&c[2]&&c[2].length>20&&c[2].includes('-')){
+        data=parseDate(c[0]);val=parseFloat(c[1].replace(',','.'));desc=c.slice(3).join(' ').trim();
+      }else{
+        data=parseDate(c[0]);desc=c[1];
+        val=parseFloat(c.slice(2).map(x=>x.replace(',','.')).find(x=>!isNaN(parseFloat(x)))||'0');
+      }
+      if(!data||!desc||isNaN(val)||val===0)return;
+      const isDb=val<0;const abs=Math.abs(val);const dl=desc.toLowerCase();
+      let cat='operacional',inc=false,obs='',ok=false;
+      if(!isDb){const rec=DB.receber.find(x=>x.status!=='pago'&&Math.abs(Number(x.falta||x.valor)-abs)<0.05);if(rec){cat='storymaker';ok=true;obs=`Conciliado: ${rec.cliente}`;matched++;}}
+      else{const pag=allPag.find(p=>Math.abs(Number(p.valor)-abs)<0.05);if(pag){cat=pag.cat||'operacional';ok=true;obs=`Conciliado: ${pag.desc}`;matched++;}}
+      if(!ok){
+        if(dl.includes('gmac')||dl.includes('consórcio'))cat='fixo';
+        else if(dl.includes('ads')||dl.includes('facebook')||dl.includes('instagram'))cat='marketing';
+        else if(dl.includes('prolabore'))cat='prolabore';
+        else if(dl.includes('renner')||dl.includes('salão')||dl.includes('cinema')||dl.includes('beleza')||dl.includes('supermercado')||dl.includes('midway')||dl.includes('english')){cat='pessoal';inc=true;incs++;obs='Despesa pessoal no CNPJ';}
+      }
+      DB.conc.push({id:nC++,data,desc,valor:abs,tipo:isDb?'debito':'credito',banco:'nubank',cat,ok,inc,obs});added++;
     });
-    log(`Extrato importado: ${added} lançamentos · ${incs} inconsistências`,'add');save();alert(`✅ ${added} importados · ⚠ ${incs} inconsistências`);rConc();
-  };r.readAsText(f);
+    log(`Extrato importado: ${added} lancamentos`,'add');save();alert(`Importados: ${added}\nConciliados: ${matched}\nInconsistencias: ${incs}`);rConc();
+  };r.readAsText(f,'UTF-8');
 }
-function catConc(id,cat){const c=DB.conc.find(x=>x.id===id);if(c){c.cat=cat;save();}}
+function catConc(id,cat){const c=DB.conc.find(x=>x.id===id);if(c){c.cat=cat;save();rConc();}}
 function toggleConc(id){const c=DB.conc.find(x=>x.id===id);if(!c)return;c.ok=!c.ok;log(`Conciliação: ${c.desc}→${c.ok?'ok':'pendente'}`,'status');save();rConc();}
 function delC(id){const c=DB.conc.find(x=>x.id===id);if(c&&confirm('Remover?')){DB.conc=DB.conc.filter(x=>x.id!==id);log(`Removido: ${c.desc}`,'del');save();rConc();}}
 
@@ -1176,6 +1193,11 @@ function rConfig(){
       <tr><td style="color:var(--text3);font-size:11px;padding:9px 14px">Consultora</td><td style="font-weight:600;color:var(--gold)">Gabriela Lima · GL Prime</td></tr>
       <tr><td style="color:var(--text3);font-size:11px;padding:9px 14px">Início BPO</td><td>02/04/2026 · R$200 implant. + R$250/mês</td></tr>
     </table></div></div>
+    <div class="card" style="grid-column:1/-1"><div class="ch"><span class="ct">Dados e backup</span></div><div class="cb" style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn" onclick="exportarDados()">⬇ Exportar backup JSON</button>
+      <button class="btn" onclick="importarDados()">⬆ Restaurar backup JSON</button>
+      <button class="btn" style="border-color:var(--rust-dim);color:var(--rust);margin-left:auto" onclick="resetarSistema()">⚠ Reiniciar todos os dados</button>
+    </div></div>
   </div>`;
 }
 function updCfg(){
@@ -1184,6 +1206,23 @@ function updCfg(){
   DB.config.meta_fat=parseFloat(document.getElementById('cfg-meta')?.value)||5000;
   DB.config.prolabore=parseFloat(document.getElementById('cfg-pro')?.value)||2000;
   save();
+}
+function resetarSistema(){
+  if(!confirm('Apagará TODOS os dados operacionais (contratos, despesas, conciliação). Continuar?'))return;
+  if(!confirm('Confirmar reset? Esta ação não pode ser desfeita.'))return;
+  DB.receber=[];DB.pagar={};DB.conc=[];DB.hist=[];nR=16;nP=200;nC=50;
+  log('Sistema reiniciado do zero','edit');save();render();alert('Sistema reiniciado!');
+}
+function exportarDados(){
+  const blob=new Blob([JSON.stringify({DB,nR,nP,nC,nPl},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`glprime_duda_backup_${today}.json`;a.click();
+}
+function importarDados(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json';
+  inp.onchange=e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();
+    reader.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(!d.DB)throw 0;DB=d.DB;nR=d.nR||16;nP=d.nP||200;nC=d.nC||50;nPl=d.nPl||12;save();render();alert('Dados restaurados!');}catch{alert('Arquivo inválido.');}};
+    reader.readAsText(file);};inp.click();
 }
 
 // ─── MODAIS ───────────────────────────────────────────────────────────────────
